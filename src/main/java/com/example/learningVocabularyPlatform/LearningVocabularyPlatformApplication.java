@@ -10,5 +10,4 @@ public class LearningVocabularyPlatformApplication {
 		SpringApplication.run(LearningVocabularyPlatformApplication.class, args);
 		System.out.println("Welcome to Vocabulary Learning Platform Application");
 	}
-
 }
