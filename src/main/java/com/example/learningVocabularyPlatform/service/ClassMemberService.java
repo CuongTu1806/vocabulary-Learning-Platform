@@ -1,4 +1,4 @@
 package com.example.learningVocabularyPlatform.service;
 
-public class ClassMemberService {
+public interface ClassMemberService {
 }
