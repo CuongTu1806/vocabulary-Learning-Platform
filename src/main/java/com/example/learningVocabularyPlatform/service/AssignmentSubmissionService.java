@@ -1,4 +1,4 @@
 package com.example.learningVocabularyPlatform.service;
 
-public class AssignmentSubmissionService {
+public interface AssignmentSubmissionService {
 }
