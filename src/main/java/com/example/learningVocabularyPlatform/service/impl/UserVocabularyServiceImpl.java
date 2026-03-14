@@ -1,5 +1,6 @@
 package com.example.learningVocabularyPlatform.service.impl;
 
+import com.example.learningVocabularyPlatform.dto.request.VocabularyAddRequest;
 import com.example.learningVocabularyPlatform.dto.response.UserVocabularyResponse;
 import com.example.learningVocabularyPlatform.entity.UserVocabularyEntity;
 import com.example.learningVocabularyPlatform.entity.VocabularyEntity;
@@ -22,21 +23,6 @@ public class UserVocabularyServiceImpl implements UserVocabularyService {
     private final VocabularyRepository vocabularyRepository;
 
     @Override
-    public List<UserVocabularyResponse> getVocabInLesson(Long lessonId) {
-        List<UserVocabularyEntity> list = userVocabularyRepository.findByLesson_Id(lessonId);
-        List<UserVocabularyResponse> responses = new ArrayList<>();
-
-        for(UserVocabularyEntity uvc : list){
-            if(uvc.getVocabulary() != null){
-                responses.add(vocabularyMapper.convertVocabularyToResponse(uvc.getVocabulary()));
-            }
-            else responses.add(vocabularyMapper.convertUserVocabularyToResponse(uvc));
-            responses.getLast().setLessonId(lessonId);
-        }
-        return responses;
-    }
-
-    @Override
     public List<UserVocabularyResponse> searchVocabulary(String keyword) {
         List<VocabularyEntity> vc = vocabularyRepository.findByWord(keyword);
         List<UserVocabularyEntity> uvc = userVocabularyRepository.findByWord(keyword);
@@ -48,5 +34,25 @@ public class UserVocabularyServiceImpl implements UserVocabularyService {
             responses.add(vocabularyMapper.convertUserVocabularyToResponse(u));
         }
         return responses;
+    }
+
+    // update a vocabulary in lesson, system vocab can not be edited
+    @Override
+    public UserVocabularyResponse updateVocabInLesson(Long vocabId, VocabularyAddRequest request) {
+        UserVocabularyEntity uvc = userVocabularyRepository.findById(vocabId).orElseThrow(() -> new RuntimeException("User Vocabulary not found"));
+        uvc.setWord(request.getWord());
+        uvc.setPos(request.getPos());
+        uvc.setAudioPath(request.getAudio_path());
+        uvc.setExample(request.getExample());
+        uvc.setMeaning(request.getMeaning());
+        uvc.setImagePath(request.getImage_path());
+        uvc.setPronunciation(request.getPronunciation());
+        userVocabularyRepository.save(uvc);
+        return vocabularyMapper.convertUserVocabularyToResponse(uvc);
+    }
+
+    @Override
+    public void deleteVocabInLesson(Long vocabId) {
+        userVocabularyRepository.deleteById(vocabId);
     }
 }

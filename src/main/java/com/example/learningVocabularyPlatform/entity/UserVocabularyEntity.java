@@ -15,7 +15,7 @@ import java.util.List;
 @SuperBuilder
 public class UserVocabularyEntity extends BaseEntity {
 
-    @Column(name = "word", nullable = false, length = 100)
+    @Column(name = "word")
     private String word;
 
     @Column(name = "pronunciation", length = 200)
@@ -24,7 +24,7 @@ public class UserVocabularyEntity extends BaseEntity {
     @Column(name = "pos", length = 50)
     private String pos;
 
-    @Column(name = "meaning", nullable = false, columnDefinition = "TEXT")
+    @Column(name = "meaning")
     private String meaning; // Nghĩa tiếng Việt
 
     @Column(name = "example")
@@ -35,6 +35,9 @@ public class UserVocabularyEntity extends BaseEntity {
 
     @Column(name = "image_path")
     private String imagePath;
+
+    @Column(name = "status")
+    private String status; // learning or learned
 
     // User 1 - N user_vocabulary
     @ManyToOne(fetch = FetchType.LAZY)

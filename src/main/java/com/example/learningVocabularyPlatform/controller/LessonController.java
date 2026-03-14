@@ -13,22 +13,16 @@ import java.util.List;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api/lesson")
+@RequestMapping("/api/lessons")
 public class LessonController {
     private final LessonService lessonService;
-    private final UserVocabularyService userVocabularyService;
     private static final Long userId = 1L;
+    private final UserVocabularyService userVocabularyService;
 
     // Get all lesson belong to user
     @GetMapping("")
     public List<LessonResponse> getAllLessons() {
         return lessonService.getAll(userId);
-    }
-
-    // hiển thị toàn bộ vocab trong lesson
-    @GetMapping("/{lessonId}")
-    public List<UserVocabularyResponse> getVocabInLesson(@PathVariable Long lessonId){
-        return userVocabularyService.getVocabInLesson(lessonId);
     }
 
     // create lesson
@@ -54,5 +48,25 @@ public class LessonController {
     public UserVocabularyResponse addVocab(@PathVariable Long lessonId,
                                            @RequestBody VocabularyAddRequest request) {
         return lessonService.addVocab(lessonId, request, userId);
+    }
+
+    // hiển thị toàn bộ vocab trong lesson
+    @GetMapping("/{lessonId}/vocabularies")
+    public List<UserVocabularyResponse> getVocabInLesson(@PathVariable Long lessonId){
+        return lessonService.getVocabInLesson(lessonId);
+    }
+
+    // update a vocabulary in lesson, system vocab can not be edited
+    @PutMapping("/{lessonId}/vocabularies/{vocabId}")
+    public UserVocabularyResponse updateVocabInLesson(@PathVariable Long lessonId,
+                                              @PathVariable Long vocabId,
+                                              @RequestBody VocabularyAddRequest request) {
+        return userVocabularyService.updateVocabInLesson(vocabId, request);
+    }
+
+    // delete a vocab in lesson
+    @DeleteMapping("/{lessonId}/vocabularies/{vocabId}")
+    public void deleteVocabInLesson(@PathVariable Long lessonId, @PathVariable Long vocabId) {
+        userVocabularyService.deleteVocabInLesson(vocabId);
     }
 }

@@ -13,4 +13,5 @@ public interface LessonService {
     UserVocabularyResponse addVocab(Long lessonId, VocabularyAddRequest request, Long userId);
     LessonResponse updateLesson(Long userId, Long lessonId, LessonRequest request);
     void deleteLesson(Long userId, Long lessonId);
+    List<UserVocabularyResponse> getVocabInLesson(Long lessonId);
 }

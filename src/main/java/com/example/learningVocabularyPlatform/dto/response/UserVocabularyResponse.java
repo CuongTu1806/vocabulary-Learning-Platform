@@ -19,4 +19,5 @@ public class UserVocabularyResponse {
     private String audio_path;
     private String image_path;
     private String type; // user or system
+    private String status; // learning or learned
 }

@@ -57,6 +57,7 @@ public class LessonServiceImpl implements LessonService {
         UserEntity user = userRepository.findById(userId).orElseThrow(() -> new RuntimeException("User not found"));
         uvc.setUser(user);
         uvc.setLesson(lesson);
+        uvc.setStatus("learning");
         userVocabularyRepository.save(uvc);
         return vocabularyMapper.convertUserVocabularyToResponse(uvc);
     }
@@ -75,5 +76,23 @@ public class LessonServiceImpl implements LessonService {
     @Override
     public void deleteLesson(Long userId, Long lessonId) {
         lessonRepository.deleteById(lessonId);
+    }
+
+    // get all vocab in lesson
+    @Override
+    public List<UserVocabularyResponse> getVocabInLesson(Long lessonId) {
+        LessonEntity lesson = lessonRepository.findById(lessonId).orElseThrow(() -> new RuntimeException("Lesson not found"));
+        List<UserVocabularyEntity> list = lesson.getUserVocabularies();
+        List<UserVocabularyResponse> responses = new ArrayList<>();
+
+        for(UserVocabularyEntity uvc : list){
+            if(uvc.getVocabulary() != null){
+                responses.add(vocabularyMapper.convertVocabularyToResponse(uvc.getVocabulary()));
+                responses.getLast().setStatus(uvc.getStatus());
+            }
+            else responses.add(vocabularyMapper.convertUserVocabularyToResponse(uvc));
+            responses.getLast().setLessonId(lessonId);
+        }
+        return responses;
     }
 }

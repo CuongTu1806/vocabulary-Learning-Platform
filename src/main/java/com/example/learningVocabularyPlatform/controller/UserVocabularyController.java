@@ -14,11 +14,6 @@ public class UserVocabularyController {
 
     private final UserVocabularyService userVocabularyService;
 
-    @GetMapping("/lesson/{lesson_id}")
-    public List<UserVocabularyResponse> getVocabInLesson(@PathVariable Long lesson_id){
-        return userVocabularyService.getVocabInLesson(lesson_id);
-    }
-
     @GetMapping("/search")
     public List<UserVocabularyResponse> searchVocabulary(@RequestParam String query){
         return userVocabularyService.searchVocabulary(query);

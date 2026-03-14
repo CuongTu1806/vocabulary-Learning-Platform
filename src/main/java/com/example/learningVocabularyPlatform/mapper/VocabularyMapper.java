@@ -37,6 +37,7 @@ public class VocabularyMapper {
                 .example(uvc.getExample())
                 .pronunciation(uvc.getPronunciation())
                 .type("user")
+                .status(uvc.getStatus())
                 .build();
     }
 
