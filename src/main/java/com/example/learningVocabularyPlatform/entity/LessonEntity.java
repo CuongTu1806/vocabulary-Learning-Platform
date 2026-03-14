@@ -29,7 +29,7 @@ public class LessonEntity extends BaseEntity {
     private UserEntity user;
 
     // Lesson 1 - N user_vocabulary
-    @OneToMany(mappedBy = "lesson", fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "lesson", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
     private List<UserVocabularyEntity> userVocabularies;
 
     // Lesson 1- N Quiz

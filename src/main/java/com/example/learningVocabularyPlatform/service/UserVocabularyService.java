@@ -6,7 +6,7 @@ import lombok.RequiredArgsConstructor;
 import java.util.List;
 
 public interface UserVocabularyService {
-    List<UserVocabularyResponse> getVocabInLesson(Long lesson_id);
+    List<UserVocabularyResponse> getVocabInLesson(Long lessonId);
 
     List<UserVocabularyResponse> searchVocabulary(String keyword);
 }

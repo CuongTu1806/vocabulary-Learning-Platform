@@ -48,7 +48,7 @@ public class UserVocabularyEntity extends BaseEntity {
 
     // Vocabulary 1 - N user_vocabulary
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "vocabulary_id", nullable = false)
+    @JoinColumn(name = "vocabulary_id")
     private VocabularyEntity vocabulary;
 
     // User_vocabulary 1 - N quiz_result

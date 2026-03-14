@@ -22,8 +22,8 @@ public class UserVocabularyServiceImpl implements UserVocabularyService {
     private final VocabularyRepository vocabularyRepository;
 
     @Override
-    public List<UserVocabularyResponse> getVocabInLesson(Long lesson_id) {
-        List<UserVocabularyEntity> list = userVocabularyRepository.findByLesson_Id(lesson_id);
+    public List<UserVocabularyResponse> getVocabInLesson(Long lessonId) {
+        List<UserVocabularyEntity> list = userVocabularyRepository.findByLesson_Id(lessonId);
         List<UserVocabularyResponse> responses = new ArrayList<>();
 
         for(UserVocabularyEntity uvc : list){
@@ -31,6 +31,7 @@ public class UserVocabularyServiceImpl implements UserVocabularyService {
                 responses.add(vocabularyMapper.convertVocabularyToResponse(uvc.getVocabulary()));
             }
             else responses.add(vocabularyMapper.convertUserVocabularyToResponse(uvc));
+            responses.getLast().setLessonId(lessonId);
         }
         return responses;
     }

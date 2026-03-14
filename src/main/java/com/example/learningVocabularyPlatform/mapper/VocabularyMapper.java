@@ -1,5 +1,7 @@
 package com.example.learningVocabularyPlatform.mapper;
 
+import com.example.learningVocabularyPlatform.dto.request.VocabularyAddRequest;
+import com.example.learningVocabularyPlatform.dto.request.VocabularyRequest;
 import com.example.learningVocabularyPlatform.dto.response.UserVocabularyResponse;
 import com.example.learningVocabularyPlatform.entity.UserVocabularyEntity;
 import com.example.learningVocabularyPlatform.entity.VocabularyEntity;
@@ -35,6 +37,18 @@ public class VocabularyMapper {
                 .example(uvc.getExample())
                 .pronunciation(uvc.getPronunciation())
                 .type("user")
+                .build();
+    }
+
+    public UserVocabularyEntity convertRequestToUserVocab(VocabularyAddRequest request) {
+        return UserVocabularyEntity.builder()
+                .pos(request.getPos())
+                .example(request.getExample())
+                .word(request.getWord())
+                .audioPath(request.getAudio_path())
+                .imagePath(request.getImage_path())
+                .meaning(request.getMeaning())
+                .pronunciation(request.getPronunciation())
                 .build();
     }
 }
