@@ -22,10 +22,11 @@ public class UserVocabularyServiceImpl implements UserVocabularyService {
     private final VocabularyMapper vocabularyMapper;
     private final VocabularyRepository vocabularyRepository;
 
+    // search vocab
     @Override
     public List<UserVocabularyResponse> searchVocabulary(String keyword) {
-        List<VocabularyEntity> vc = vocabularyRepository.findByWord(keyword);
-        List<UserVocabularyEntity> uvc = userVocabularyRepository.findByWord(keyword);
+        List<VocabularyEntity> vc = vocabularyRepository.findByWordContaining(keyword);
+        List<UserVocabularyEntity> uvc = userVocabularyRepository.findByWordContaining(keyword);
         List<UserVocabularyResponse> responses = new ArrayList<>();
         for(VocabularyEntity v : vc){
             responses.add(vocabularyMapper.convertVocabularyToResponse(v));

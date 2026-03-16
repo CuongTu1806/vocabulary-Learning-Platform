@@ -8,5 +8,5 @@ import java.util.List;
 public interface UserVocabularyRepository extends JpaRepository<UserVocabularyEntity, Long> {
     List<UserVocabularyEntity> findByLesson_Id(Long lessonId);
 
-    List<UserVocabularyEntity> findByWord(String word);
+    List<UserVocabularyEntity> findByWordContaining(String word);
 }

@@ -19,7 +19,7 @@ public class LessonController {
     private static final Long userId = 1L;
     private final UserVocabularyService userVocabularyService;
 
-    // Get all lesson belong to user
+    // Get all lessons belong to user
     @GetMapping("")
     public List<LessonResponse> getAllLessons() {
         return lessonService.getAll(userId);
