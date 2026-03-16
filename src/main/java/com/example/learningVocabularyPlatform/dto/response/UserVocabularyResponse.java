@@ -15,8 +15,9 @@ public class UserVocabularyResponse {
     private String pronunciation;
     private String meaning;
     private String example;
-    private String lessonId;
+    private Long lessonId;
     private String audio_path;
     private String image_path;
     private String type; // user or system
+    private String status; // learning or learned
 }
