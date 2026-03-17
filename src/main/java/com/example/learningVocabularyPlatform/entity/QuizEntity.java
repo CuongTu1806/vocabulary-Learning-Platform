@@ -19,6 +19,7 @@ import java.util.List;
 public class QuizEntity extends BaseEntity {
 
     @Column(name = "type_quiz")
+    @Enumerated(EnumType.STRING)
     private String typeQuiz;
 
     @Column(name = "score")
