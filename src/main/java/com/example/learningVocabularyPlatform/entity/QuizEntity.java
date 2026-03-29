@@ -8,6 +8,9 @@ import lombok.Setter;
 import lombok.experimental.SuperBuilder;
 
 import java.util.List;
+import java.time.LocalDateTime;
+
+import com.example.learningVocabularyPlatform.enums.QuizType;
 
 @Entity
 @Table(name = "quiz")
@@ -19,10 +22,17 @@ import java.util.List;
 public class QuizEntity extends BaseEntity {
 
     @Column(name = "type_quiz")
-    private String typeQuiz;
+    @Enumerated(EnumType.STRING)
+    private QuizType typeQuiz;
 
     @Column(name = "score")
     private Integer score;
+
+    @Column(name = "duration")
+    private Long duration; // segundos
+
+    @Column(name = "finished_at")
+    private LocalDateTime finishedAt;
 
     // User 1 - N Quiz
     @ManyToOne(fetch = FetchType.LAZY)

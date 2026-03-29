@@ -8,7 +8,7 @@ import lombok.*;
 @NoArgsConstructor
 @Builder
 
-public class LessonRequest {
-    private String title;
-    private String description;
+public class AnswerSubmitRequest {
+    private Long questionId; // quizResultId
+    private String userAnswer;
 }

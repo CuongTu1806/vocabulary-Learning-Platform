@@ -3,6 +3,8 @@ package com.example.learningVocabularyPlatform.entity;
 import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.LocalDateTime;
 
@@ -13,12 +15,13 @@ import java.time.LocalDateTime;
 @SuperBuilder
 @AllArgsConstructor
 @NoArgsConstructor
-
+@EntityListeners(AuditingEntityListener.class)
 public class ClassMemberEntity extends BaseEntity {
 
     @Column(name = "role")
     private String role;
 
+    @CreatedDate
     @Column(name = "joined_at")
     private LocalDateTime joinedAt;
 
