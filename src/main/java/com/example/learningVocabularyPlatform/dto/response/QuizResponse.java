@@ -15,7 +15,5 @@ public class QuizResponse {
     private String quizType;
     private Long lessonId;
     private Long userId;
-    private String question;
-    private List<String> distractor;
-    private String correctAnswer;
+    private List<QuizQuestionResponse> questions;
 }
