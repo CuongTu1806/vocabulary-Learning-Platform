@@ -18,6 +18,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 
+
 @Service
 @RequiredArgsConstructor
 public class ClassroomServiceImpl implements ClassroomService {
@@ -26,25 +27,25 @@ public class ClassroomServiceImpl implements ClassroomService {
     private final ClassMemberRepository classMemberRepository;
     private final UserRepository userRepository;
 
+    // Hardcode user tạm thời, sau này lấy từ JWT
+    private static final Long HARDCODE_USER_ID = 1L;
+
     @Override
     public ApiResponse createClassroom(ClassroomRequest req) {
+        UserEntity owner = userRepository.findById(HARDCODE_USER_ID)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy user!"));
+
         ClassroomEntity classroom = ClassroomEntity.builder()
                 .name(req.getName())
                 .description(req.getDescription())
+                .owner(owner)
                 .build();
-
         classroomRepository.save(classroom);
 
-        ClassroomResponse classroomResponse = ClassroomResponse.builder()
-                .id(classroom.getId())
-                .name(classroom.getName())
-                .description(classroom.getDescription())
-                .createdAt(classroom.getCreatedAt())
-                .build();
-
+        ClassroomResponse response = toResponse(classroom);
         return ApiResponse.builder()
                 .message("Tạo lớp học thành công!")
-                .data(classroomResponse)
+                .data(response)
                 .build();
     }
 
@@ -57,16 +58,9 @@ public class ClassroomServiceImpl implements ClassroomService {
         classroom.setDescription(req.getDescription());
         classroomRepository.save(classroom);
 
-        ClassroomResponse classroomResponse = ClassroomResponse.builder()
-                .id(classroom.getId())
-                .name(classroom.getName())
-                .description(classroom.getDescription())
-                .createdAt(classroom.getCreatedAt())
-                .build();
-
         return ApiResponse.builder()
                 .message("Cập nhật lớp học thành công!")
-                .data(classroomResponse)
+                .data(toResponse(classroom))
                 .build();
     }
 
@@ -75,9 +69,41 @@ public class ClassroomServiceImpl implements ClassroomService {
         ClassroomEntity classroom = classroomRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lớp học!"));
 
+        classMemberRepository.deleteByClassroomId(id);
         classroomRepository.delete(classroom);
         return ApiResponse.builder()
                 .message("Xóa lớp học thành công!")
+                .build();
+    }
+
+    @Override
+    public ApiResponse getClassroomById(Long id) {
+        ClassroomEntity classroom = classroomRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lớp học!"));
+
+        return ApiResponse.builder()
+                .message("Thành công!")
+                .data(toResponse(classroom))
+                .build();
+    }
+
+    @Override
+    public ApiResponse getClassroomMembers(Long id) {
+        List<ClassMemberEntity> classMembers = classMemberRepository.findByClassroomId(id);
+
+        List<ClassMemberResponse> response = classMembers.stream()
+                .map(member -> ClassMemberResponse.builder()
+                        .id(member.getId())
+                        .classId(id)
+                        .userId(member.getUser().getId())
+                        .role(member.getRole())
+                        .joinedAt(member.getJoinedAt())
+                        .build())
+                .toList();
+
+        return ApiResponse.builder()
+                .message("Lấy dữ liệu thành công!")
+                .data(response)
                 .build();
     }
 
@@ -86,12 +112,23 @@ public class ClassroomServiceImpl implements ClassroomService {
         ClassroomEntity classroom = classroomRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lớp học!"));
 
-        // JWT !!!!!!!!
-        ClassMemberEntity classMember = ClassMemberEntity.builder()
+        UserEntity user = userRepository.findById(HARDCODE_USER_ID)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy user!"));
+
+        // Kiểm tra đã join chưa
+        boolean alreadyJoined = classMemberRepository.existsByClassroomIdAndUserId(id, HARDCODE_USER_ID);
+        if (alreadyJoined) {
+            return ApiResponse.builder()
+                    .message("Bạn đã tham gia lớp học này rồi!")
+                    .build();
+        }
+
+        ClassMemberEntity member = ClassMemberEntity.builder()
                 .classroom(classroom)
+                .user(user)
                 .role("STUDENT")
                 .build();
-        classMemberRepository.save(classMember);
+        classMemberRepository.save(member);
 
         return ApiResponse.builder()
                 .message("Tham gia lớp học thành công!")
@@ -100,7 +137,14 @@ public class ClassroomServiceImpl implements ClassroomService {
 
     @Override
     public ApiResponse leaveClassroom(Long id) {
-        // JWT !!!!!!!!!!!!!
+        boolean isMember = classMemberRepository.existsByClassroomIdAndUserId(id, HARDCODE_USER_ID);
+        if (!isMember) {
+            return ApiResponse.builder()
+                    .message("Bạn không phải thành viên của lớp học này!")
+                    .build();
+        }
+
+        classMemberRepository.deleteByClassroomIdAndUserId(id, HARDCODE_USER_ID);
         return ApiResponse.builder()
                 .message("Rời lớp học thành công!")
                 .build();
@@ -110,62 +154,53 @@ public class ClassroomServiceImpl implements ClassroomService {
     public ApiResponse inviteMembers(Long id, ClassMemberRequest req) {
         ClassroomEntity classroom = classroomRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lớp học!"));
+
         UserEntity user = userRepository.findById(req.getUserId())
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng!"));
-        ClassMemberEntity classMember = ClassMemberEntity.builder()
-                .user(user)
+
+        // Kiểm tra đã là member chưa
+        boolean alreadyMember = classMemberRepository.existsByClassroomIdAndUserId(id, req.getUserId());
+        if (alreadyMember) {
+            return ApiResponse.builder()
+                    .message("Người dùng đã là thành viên của lớp học này rồi!")
+                    .build();
+        }
+
+        ClassMemberEntity member = ClassMemberEntity.builder()
                 .classroom(classroom)
+                .user(user)
                 .role("STUDENT")
                 .build();
+        classMemberRepository.save(member);
 
-        classMemberRepository.save(classMember);
         return ApiResponse.builder()
-                .message("Đã gửi lời mời thành công!")
+                .message("Đã thêm thành viên thành công!")
                 .build();
     }
 
     @Override
     public ApiResponse removeMember(Long id, Long userId) {
+        boolean isMember = classMemberRepository.existsByClassroomIdAndUserId(id, userId);
+        if (!isMember) {
+            return ApiResponse.builder()
+                    .message("Không tìm thấy thành viên trong lớp học!")
+                    .build();
+        }
+
         classMemberRepository.deleteByClassroomIdAndUserId(id, userId);
         return ApiResponse.builder()
                 .message("Xóa thành viên thành công!")
                 .build();
     }
 
-    @Override
-    public ApiResponse getClassroomById(Long id) {
-        ClassroomEntity classroom = classroomRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lớp học!"));
-
-        ClassroomResponse classroomResponse = ClassroomResponse.builder()
+    // Helper method - convert Entity sang DTO
+    private ClassroomResponse toResponse(ClassroomEntity classroom) {
+        return ClassroomResponse.builder()
                 .id(classroom.getId())
                 .name(classroom.getName())
                 .description(classroom.getDescription())
+                .ownerId(classroom.getOwner() != null ? classroom.getOwner().getId() : null)
                 .createdAt(classroom.getCreatedAt())
-                .build();
-
-        return ApiResponse.builder()
-                .message("Thành công!")
-                .data(classroomResponse)
-                .build();
-    }
-
-    @Override
-    public ApiResponse getClassroomMembers(Long id) {
-        List<ClassMemberEntity> classMembers = classMemberRepository.findByClassroomId(id);
-
-        List<ClassMemberResponse> classMemberResponses = classMembers.stream().map(member ->
-                ClassMemberResponse.builder()
-                        .id(member.getId())
-                        .classId(id)
-                        .userId(member.getUser().getId())
-                        .role(member.getRole())
-                        .joinedAt(member.getJoinedAt())
-                        .build()
-                ).toList();
-        return ApiResponse.builder()
-                .message("Lấy dữ liệu thành công!")
-                .data(classMemberResponses)
                 .build();
     }
 }
