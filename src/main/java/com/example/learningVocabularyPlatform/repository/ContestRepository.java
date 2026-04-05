@@ -1,4 +1,7 @@
 package com.example.learningVocabularyPlatform.repository;
 
-public interface ContestRepository {
+import com.example.learningVocabularyPlatform.entity.ContestEntity;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+public interface ContestRepository extends JpaRepository<ContestEntity, Long> {
 }
