@@ -14,4 +14,5 @@ public class QuizSubmitRequest {
 
     private Long quizId;
     private List<AnswerSubmitRequest> answers;
+    private Long durationInSeconds; // Thời gian làm quiz tính từ frontend (giây)
 }

@@ -13,6 +13,8 @@ import com.example.learningVocabularyPlatform.service.QuizService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
@@ -136,6 +138,7 @@ public class QuizServiceImpl implements QuizService {
 
 
         return QuizResponse.builder()
+                .quizId(qe.getId())
                 .questions(qqrs)
                 .quizType(String.valueOf(quizType))
                 .userId(userId)
@@ -215,7 +218,18 @@ public class QuizServiceImpl implements QuizService {
 
         
         LocalDateTime finishedAt = LocalDateTime.now();
-        long durationInSeconds = ChronoUnit.SECONDS.between(quizEntity.getCreatedAt(), finishedAt);
+        long durationInSeconds;
+        
+        // Nếu frontend gửi duration, dùng nó; nếu không thì tính từ createdAt
+        if (request.getDurationInSeconds() != null && request.getDurationInSeconds() > 0) {
+            durationInSeconds = request.getDurationInSeconds();
+        } else if (quizEntity.getCreatedAt() != null) {
+            durationInSeconds = ChronoUnit.SECONDS.between(quizEntity.getCreatedAt(), finishedAt);
+        } else {
+            // Fallback nếu createdAt null (không nên xảy ra nhưng phòng trường hợp)
+            durationInSeconds = 0;
+        }
+        
         quizEntity.setFinishedAt(finishedAt);  //Lưu thời điểm kết thúc
         quizEntity.setDuration(durationInSeconds);  //Lưu thời gian làm bài (giây)
 
@@ -278,7 +292,12 @@ public class QuizServiceImpl implements QuizService {
             spec = spec.and((root, query, cb) ->
                 cb.lessThanOrEqualTo(root.get("score"), maxScore));
         }
-        return quizRepository.findAll(spec, pageable)
+        
+        // Create sort by finishedAt DESC (most recent first)
+        Sort sort = Sort.by(Sort.Direction.DESC, "finishedAt");
+        Pageable sortedPageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), sort);
+        
+        return quizRepository.findAll(spec, sortedPageable)
             .map(quizMapper::toQuizHistoryResponse);
 
     }
@@ -297,36 +316,30 @@ public class QuizServiceImpl implements QuizService {
     }
 
     private List<String> pickDistractors(UserVocabularyEntity question, String correctAnswer, boolean useMeaning) {
-        Set<String> pool = new LinkedHashSet<>();
-
-        List<VocabularyEntity> samePos = vocabularyRepository.findByPosIgnoreCase(question.getPos());
-        for (VocabularyEntity v : samePos) {
+        // Lấy tất cả vocabulary từ database
+        List<VocabularyEntity> allVocabularies = vocabularyRepository.findAll();
+        
+        // Tạo danh sách các đáp án nhiễu hợp lệ (khác đáp án đúng)
+        List<String> candidates = new ArrayList<>();
+        for (VocabularyEntity v : allVocabularies) {
             String candidate = useMeaning ? v.getMeaning() : v.getWord();
             if (isValidCandidate(candidate, correctAnswer)) {
-                pool.add(candidate.trim());
+                candidates.add(candidate.trim());
             }
         }
-
-        // nếu đáp án nhiễu cùng pos ít hơn 3 thì lấy cái khác pos
-        if (pool.size() < 3) {
-            for (VocabularyEntity v : vocabularyRepository.findAll()) {
-                String candidate = useMeaning ? v.getMeaning() : v.getWord();
-                if (isValidCandidate(candidate, correctAnswer)) {
-                    pool.add(candidate.trim());
-                }
-                if (pool.size() >= 3) {
-                    break;
-                }
-            }
-        }
-
-        // trộn đáp án nhiễu
-        List<String> shuffled = new ArrayList<>(pool);
-        Collections.shuffle(shuffled);
-        List<String> distractors = new ArrayList<>(shuffled.subList(0, Math.min(3, shuffled.size())));
+        
+        // Shuffle danh sách candidates để lấy ngẫu nhiên
+        Collections.shuffle(candidates);
+        
+        // Lấy 3 đáp án nhiễu (hoặc ít hơn nếu không đủ)
+        List<String> distractors = new ArrayList<>(candidates.subList(0, Math.min(3, candidates.size())));
+        
+        // Thêm đáp án đúng
         distractors.add(correctAnswer);
+        
+        // Shuffle tất cả đáp án (bao gồm cả đáp án đúng)
         Collections.shuffle(distractors);
-
+        
         return distractors;
     }
 
