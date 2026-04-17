@@ -12,6 +12,7 @@ import java.util.Map;
 @NoArgsConstructor
 
 public class QuizResponse {
+    private Long quizId;
     private String quizType;
     private Long lessonId;
     private Long userId;

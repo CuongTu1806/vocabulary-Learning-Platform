@@ -19,8 +19,20 @@ public class ReviewScheduleEntity extends BaseEntity {
     @Column(name = "repetation_level")
     private int repetationLevel;
 
+    @Column(name = "state", length = 20)
+    private String state;
+
+    @Column(name = "learning_step")
+    private int learningStep;
+
     @Column(name = "interval_days")
     private int intervalDays;
+
+    @Column(name = "ease_factor")
+    private double easeFactor;
+
+    @Column(name = "delay_factor")
+    private double delayFactor;
 
     @Column(name = "next_review_date")
     private LocalDateTime nextReviewDate;
