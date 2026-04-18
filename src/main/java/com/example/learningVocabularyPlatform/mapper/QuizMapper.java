@@ -11,7 +11,14 @@ import java.time.LocalDateTime;
 @Component
 public class QuizMapper {
     public QuizHistoryResponse toQuizHistoryResponse(QuizEntity quiz) {
-        long duration = quiz.getDuration();
+        // Calculate duration: prioritize stored value, fallback to calculate from timestamps, default to 0
+        long duration = 0;
+        if (quiz.getDuration() != null) {
+            duration = quiz.getDuration();
+        } else if (quiz.getCreatedAt() != null && quiz.getFinishedAt() != null) {
+            // Calculate duration from timestamps if not stored
+            duration = Duration.between(quiz.getCreatedAt(), quiz.getFinishedAt()).getSeconds();
+        }
 
         long hours = duration / 3600;
         long minutes = duration % 3600 / 60;

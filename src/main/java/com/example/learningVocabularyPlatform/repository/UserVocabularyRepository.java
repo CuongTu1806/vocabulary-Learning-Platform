@@ -9,4 +9,10 @@ public interface UserVocabularyRepository extends JpaRepository<UserVocabularyEn
     List<UserVocabularyEntity> findByLesson_Id(Long lessonId);
 
     List<UserVocabularyEntity> findByWordContaining(String word);
+
+    List<UserVocabularyEntity> findByUser_Id(Long userId);
+
+    List<UserVocabularyEntity> findByUser_IdAndStatus(Long userId, String status);
+
+    java.util.Optional<UserVocabularyEntity> findByIdAndUser_Id(Long id, Long userId);
 }
