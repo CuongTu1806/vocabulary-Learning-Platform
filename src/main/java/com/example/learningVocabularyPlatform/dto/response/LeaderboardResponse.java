@@ -17,9 +17,7 @@ public class LeaderboardResponse {
     private Long userId;
     private String username;
 
-    /** Tổng điểm = SUM(score) trên mọi contest_submission của user */
     private int rating;
 
-    /** Số contest đã có ít nhất một lần nộp bài */
     private int contestCount;
 }
