@@ -27,12 +27,9 @@ public class ClassroomServiceImpl implements ClassroomService {
     private final ClassMemberRepository classMemberRepository;
     private final UserRepository userRepository;
 
-    // Hardcode user tạm thời, sau này lấy từ JWT
-    private static final Long HARDCODE_USER_ID = 1L;
-
     @Override
-    public ApiResponse createClassroom(ClassroomRequest req) {
-        UserEntity owner = userRepository.findById(HARDCODE_USER_ID)
+        public ApiResponse createClassroom(Long currentUserId, ClassroomRequest req) {
+                UserEntity owner = userRepository.findById(currentUserId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy user!"));
 
         ClassroomEntity classroom = ClassroomEntity.builder()
@@ -108,15 +105,15 @@ public class ClassroomServiceImpl implements ClassroomService {
     }
 
     @Override
-    public ApiResponse joinClassroom(Long id) {
+        public ApiResponse joinClassroom(Long id, Long currentUserId) {
         ClassroomEntity classroom = classroomRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lớp học!"));
 
-        UserEntity user = userRepository.findById(HARDCODE_USER_ID)
+                UserEntity user = userRepository.findById(currentUserId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy user!"));
 
         // Kiểm tra đã join chưa
-        boolean alreadyJoined = classMemberRepository.existsByClassroomIdAndUserId(id, HARDCODE_USER_ID);
+                boolean alreadyJoined = classMemberRepository.existsByClassroomIdAndUserId(id, currentUserId);
         if (alreadyJoined) {
             return ApiResponse.builder()
                     .message("Bạn đã tham gia lớp học này rồi!")
@@ -136,15 +133,15 @@ public class ClassroomServiceImpl implements ClassroomService {
     }
 
     @Override
-    public ApiResponse leaveClassroom(Long id) {
-        boolean isMember = classMemberRepository.existsByClassroomIdAndUserId(id, HARDCODE_USER_ID);
+        public ApiResponse leaveClassroom(Long id, Long currentUserId) {
+                boolean isMember = classMemberRepository.existsByClassroomIdAndUserId(id, currentUserId);
         if (!isMember) {
             return ApiResponse.builder()
                     .message("Bạn không phải thành viên của lớp học này!")
                     .build();
         }
 
-        classMemberRepository.deleteByClassroomIdAndUserId(id, HARDCODE_USER_ID);
+                classMemberRepository.deleteByClassroomIdAndUserId(id, currentUserId);
         return ApiResponse.builder()
                 .message("Rời lớp học thành công!")
                 .build();

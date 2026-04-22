@@ -15,4 +15,6 @@ public interface UserVocabularyRepository extends JpaRepository<UserVocabularyEn
     List<UserVocabularyEntity> findByUser_IdAndStatus(Long userId, String status);
 
     java.util.Optional<UserVocabularyEntity> findByIdAndUser_Id(Long id, Long userId);
+
+    int countByLesson_Id(Long id);
 }
