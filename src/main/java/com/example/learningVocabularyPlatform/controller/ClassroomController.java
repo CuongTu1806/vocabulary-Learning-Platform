@@ -1,11 +1,13 @@
 package com.example.learningVocabularyPlatform.controller;
 
+import com.example.learningVocabularyPlatform.config.CurrentUserResolver;
 import com.example.learningVocabularyPlatform.dto.request.ClassMemberRequest;
 import com.example.learningVocabularyPlatform.dto.request.ClassroomRequest;
 import com.example.learningVocabularyPlatform.dto.response.ApiResponse;
 import com.example.learningVocabularyPlatform.service.ClassroomService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -14,6 +16,7 @@ import org.springframework.web.bind.annotation.*;
 public class ClassroomController {
 
     private final ClassroomService classroomService;
+    private final CurrentUserResolver currentUserResolver;
 
     @GetMapping("/{id}")
     ResponseEntity<ApiResponse> getClassroomById(@PathVariable Long id) {
@@ -26,18 +29,22 @@ public class ClassroomController {
     }
 
     @PostMapping("")
-    ResponseEntity<ApiResponse> createClassroom(@RequestBody ClassroomRequest classroomRequest) {
-        return ResponseEntity.ok(classroomService.createClassroom(classroomRequest));
+    ResponseEntity<ApiResponse> createClassroom(Authentication authentication,
+                                                @RequestBody ClassroomRequest classroomRequest) {
+        Long currentUserId = currentUserResolver.requireUserId(authentication);
+        return ResponseEntity.ok(classroomService.createClassroom(currentUserId, classroomRequest));
     }
 
     @PostMapping("/{id}/join")
-    ResponseEntity<ApiResponse> joinClassroom(@PathVariable Long id) {
-        return ResponseEntity.ok(classroomService.joinClassroom(id));
+    ResponseEntity<ApiResponse> joinClassroom(Authentication authentication, @PathVariable Long id) {
+        Long currentUserId = currentUserResolver.requireUserId(authentication);
+        return ResponseEntity.ok(classroomService.joinClassroom(id, currentUserId));
     }
 
     @PostMapping("/{id}/leave")
-    ResponseEntity<ApiResponse> leaveClassroom(@PathVariable Long id) {
-        return ResponseEntity.ok(classroomService.leaveClassroom(id));
+    ResponseEntity<ApiResponse> leaveClassroom(Authentication authentication, @PathVariable Long id) {
+        Long currentUserId = currentUserResolver.requireUserId(authentication);
+        return ResponseEntity.ok(classroomService.leaveClassroom(id, currentUserId));
     }
 
     @PostMapping("/{id}/invite")

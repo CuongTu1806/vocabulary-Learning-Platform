@@ -1,5 +1,6 @@
 package com.example.learningVocabularyPlatform.controller;
 
+import com.example.learningVocabularyPlatform.config.CurrentUserResolver;
 import com.example.learningVocabularyPlatform.dto.request.AssignmentRequest;
 import com.example.learningVocabularyPlatform.dto.request.AssignmentSubmissionRequest;
 import com.example.learningVocabularyPlatform.dto.response.ApiResponse;
@@ -7,6 +8,7 @@ import com.example.learningVocabularyPlatform.service.AssignmentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -15,10 +17,12 @@ import org.springframework.web.bind.annotation.*;
 public class AssignmentController {
 
     private final AssignmentService assignmentService;
+    private final CurrentUserResolver currentUserResolver;
 
     @PostMapping
-    public ResponseEntity<ApiResponse> create(@Valid @RequestBody AssignmentRequest req) {
-        return ResponseEntity.ok(assignmentService.createAssignment(req));
+    public ResponseEntity<ApiResponse> create(Authentication authentication, @Valid @RequestBody AssignmentRequest req) {
+        Long currentUserId = currentUserResolver.requireUserId(authentication);
+        return ResponseEntity.ok(assignmentService.createAssignment(req, currentUserId));
     }
 
     @PutMapping("/{id}")
@@ -42,8 +46,11 @@ public class AssignmentController {
     }
 
     @PostMapping("/{id}/submit")
-    public ResponseEntity<ApiResponse> submit(@RequestBody AssignmentSubmissionRequest req, @PathVariable Long id) {
-        return ResponseEntity.ok(assignmentService.submitAssignment(id, req));
+    public ResponseEntity<ApiResponse> submit(Authentication authentication,
+                                              @RequestBody AssignmentSubmissionRequest req,
+                                              @PathVariable Long id) {
+        Long currentUserId = currentUserResolver.requireUserId(authentication);
+        return ResponseEntity.ok(assignmentService.submitAssignment(id, req, currentUserId));
     }
 
     @GetMapping("/{id}/submissions")

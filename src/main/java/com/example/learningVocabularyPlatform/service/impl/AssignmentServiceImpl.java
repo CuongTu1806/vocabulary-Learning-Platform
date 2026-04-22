@@ -28,15 +28,12 @@ public class AssignmentServiceImpl implements AssignmentService {
     private final UserRepository userRepository;
     private final ClassMemberRepository classMemberRepository;
 
-    private static final Long HARDCODE_USER_ID = 1L;
-    private static final Long HARDCODE_STUDENT_ID = 4L;
-
     @Override
     @Transactional
-    public ApiResponse createAssignment(AssignmentRequest req) {
+        public ApiResponse createAssignment(AssignmentRequest req, Long currentUserId) {
         ClassroomEntity classroom = classroomRepository.findById(req.getClassId())
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lớp học"));
-        UserEntity user = userRepository.findById(HARDCODE_USER_ID)
+                UserEntity user = userRepository.findById(currentUserId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng"));
 
 
@@ -121,7 +118,7 @@ public class AssignmentServiceImpl implements AssignmentService {
 
     @Override
     @Transactional
-    public ApiResponse submitAssignment(Long assignmentId, AssignmentSubmissionRequest req) {
+        public ApiResponse submitAssignment(Long assignmentId, AssignmentSubmissionRequest req, Long currentUserId) {
         AssignmentEntity assignmentEntity = assignmentRepository.findById(assignmentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy bài kiểm tra"));
 
@@ -131,7 +128,7 @@ public class AssignmentServiceImpl implements AssignmentService {
                     .build();
         }
 
-        UserEntity userEntity = userRepository.findById(HARDCODE_STUDENT_ID)
+        UserEntity userEntity = userRepository.findById(currentUserId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy user"));
 
         boolean isMember = classMemberRepository.existsByClassroomIdAndUserId(assignmentEntity.getClassroom().getId(), userEntity.getId());

@@ -5,12 +5,12 @@ import com.example.learningVocabularyPlatform.dto.request.AssignmentSubmissionRe
 import com.example.learningVocabularyPlatform.dto.response.ApiResponse;
 
 public interface AssignmentService {
-    ApiResponse createAssignment(AssignmentRequest req);
+    ApiResponse createAssignment(AssignmentRequest req, Long currentUserId);
     ApiResponse updateAssignment(AssignmentRequest req, Long id);
     ApiResponse deleteAssignment(Long id);
     ApiResponse getAssignments(Long classId);
     ApiResponse getAssignmentById(Long id);
-    ApiResponse submitAssignment(Long assignmentId, AssignmentSubmissionRequest req);
+    ApiResponse submitAssignment(Long assignmentId, AssignmentSubmissionRequest req, Long currentUserId);
     ApiResponse getSubmissions(Long assignmentId);
     ApiResponse gradeAssignment(Long assignmentId, Long submissionId, Float score);
 }
