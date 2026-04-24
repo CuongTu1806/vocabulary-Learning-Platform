@@ -181,6 +181,7 @@ public class AuthServiceImpl implements AuthService {
 				.token(accessToken)
 				.refreshToken(refreshToken)
 				.tokenType("Bearer")
+				.userId(user.getId())
 				.username(user.getUsername())
 				.email(user.getEmail())
 				.build();
@@ -219,6 +220,7 @@ public class AuthServiceImpl implements AuthService {
 				.orElseThrow(() -> new IllegalArgumentException("User not found"));
 
 		return AuthResponse.builder()
+				.userId(user.getId())
 				.username(user.getUsername())
 				.email(user.getEmail())
 				.tokenType("Bearer")

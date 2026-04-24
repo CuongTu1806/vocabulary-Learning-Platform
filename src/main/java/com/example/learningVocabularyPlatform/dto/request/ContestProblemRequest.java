@@ -21,6 +21,9 @@ public class ContestProblemRequest {
 
     private String wrongAnswer;
 
+    /** Ảnh minh họa (URL), tuỳ chọn */
+    private String imageUrl;
+
     @NotBlank
     private String answer;
 

@@ -17,6 +17,8 @@ public class ContestSubmissionResponse {
     private Long userId;
     private String userAnswer;
     private int score;
+    /** Đúng / sai (theo so khớp đáp án) */
+    private Boolean correct;
     private String status;
     private LocalDateTime submittedAt;
 }

@@ -11,6 +11,8 @@ import java.util.List;
 public interface ClassMemberRepository extends JpaRepository<ClassMemberEntity, Long> {
     List<ClassMemberEntity> findByClassroomId(Long classroomId);
 
+    List<ClassMemberEntity> findByUser_Id(Long userId);
+
     @Transactional
     void deleteByClassroomIdAndUserId(Long classroomId, Long userId);
 
