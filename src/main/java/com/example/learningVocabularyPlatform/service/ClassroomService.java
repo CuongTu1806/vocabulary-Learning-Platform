@@ -31,4 +31,7 @@ public interface ClassroomService {
 
     // Get class members
     ApiResponse getClassroomMembers(Long id);
+
+    /** Lớp do user làm chủ hoặc đang tham gia */
+    ApiResponse getMyClassrooms();
 }

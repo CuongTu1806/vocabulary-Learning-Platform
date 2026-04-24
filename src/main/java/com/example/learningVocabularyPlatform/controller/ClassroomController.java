@@ -18,6 +18,11 @@ public class ClassroomController {
     private final ClassroomService classroomService;
     private final CurrentUserResolver currentUserResolver;
 
+    @GetMapping
+    ResponseEntity<ApiResponse> listMyClassrooms() {
+        return ResponseEntity.ok(classroomService.getMyClassrooms());
+    }
+
     @GetMapping("/{id}")
     ResponseEntity<ApiResponse> getClassroomById(@PathVariable Long id) {
         return ResponseEntity.ok(classroomService.getClassroomById(id));

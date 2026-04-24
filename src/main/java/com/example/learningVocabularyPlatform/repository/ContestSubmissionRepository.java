@@ -11,6 +11,8 @@ public interface ContestSubmissionRepository extends JpaRepository<ContestSubmis
 
     List<ContestSubmissionEntity> findByContest_Id(Long contestId);
 
+    List<ContestSubmissionEntity> findByContest_IdAndUser_Id(Long contestId, Long userId);
+
     Optional<ContestSubmissionEntity> findByContest_IdAndProblem_IdAndUser_Id(
             Long contestId, Long problemId, Long userId);
 

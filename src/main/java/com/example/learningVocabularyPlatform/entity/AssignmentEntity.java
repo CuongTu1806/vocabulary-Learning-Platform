@@ -39,4 +39,7 @@ public class AssignmentEntity extends BaseEntity {
     // Assignment 1 - N assignment_submission
     @OneToMany(mappedBy = "assignment", fetch = FetchType.LAZY)
     private List<AssignmentSubmissionEntity> assignmentSubmissions;
+
+    @OneToMany(mappedBy = "assignment", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private List<AssignmentAttachmentEntity> attachments;
 }

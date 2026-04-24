@@ -4,12 +4,20 @@ import com.example.learningVocabularyPlatform.config.CurrentUserResolver;
 import com.example.learningVocabularyPlatform.dto.request.AssignmentRequest;
 import com.example.learningVocabularyPlatform.dto.request.AssignmentSubmissionRequest;
 import com.example.learningVocabularyPlatform.dto.response.ApiResponse;
+import com.example.learningVocabularyPlatform.dto.response.FileDownloadDto;
 import com.example.learningVocabularyPlatform.service.AssignmentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.core.io.Resource;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.nio.charset.StandardCharsets;
 
 @RestController
 @RequestMapping("/api/assignments")
@@ -19,13 +27,12 @@ public class AssignmentController {
     private final AssignmentService assignmentService;
     private final CurrentUserResolver currentUserResolver;
 
-    @PostMapping
-    public ResponseEntity<ApiResponse> create(Authentication authentication, @Valid @RequestBody AssignmentRequest req) {
-        Long currentUserId = currentUserResolver.requireUserId(authentication);
-        return ResponseEntity.ok(assignmentService.createAssignment(req, currentUserId));
+    @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ApiResponse> create(@Valid @RequestBody AssignmentRequest req) {
+        return ResponseEntity.ok(assignmentService.createAssignment(req));
     }
 
-    @PutMapping("/{id}")
+    @PutMapping(value = "/{id}", consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<ApiResponse> update(@Valid @RequestBody AssignmentRequest req, @PathVariable Long id) {
         return ResponseEntity.ok(assignmentService.updateAssignment(req, id));
     }
@@ -40,17 +47,61 @@ public class AssignmentController {
         return ResponseEntity.ok(assignmentService.getAssignments(classId));
     }
 
+    @GetMapping("/attachments/{attachmentId}/download")
+    public ResponseEntity<Resource> downloadAssignmentAttachment(@PathVariable Long attachmentId) {
+        FileDownloadDto d = assignmentService.downloadAssignmentAttachment(attachmentId);
+        ContentDisposition cd = ContentDisposition.attachment()
+                .filename(d.getOriginalFilename(), StandardCharsets.UTF_8)
+                .build();
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, cd.toString())
+                .contentType(MediaType.parseMediaType(d.getContentType()))
+                .body(d.getResource());
+    }
+
+    @GetMapping("/submissions/{submissionId}/attachments/{attachmentId}/download")
+    public ResponseEntity<Resource> downloadSubmissionAttachment(
+            @PathVariable Long submissionId,
+            @PathVariable Long attachmentId) {
+        FileDownloadDto d = assignmentService.downloadSubmissionAttachment(submissionId, attachmentId);
+        ContentDisposition cd = ContentDisposition.attachment()
+                .filename(d.getOriginalFilename(), StandardCharsets.UTF_8)
+                .build();
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, cd.toString())
+                .contentType(MediaType.parseMediaType(d.getContentType()))
+                .body(d.getResource());
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse> getAssignmentById(@PathVariable Long id) {
         return ResponseEntity.ok(assignmentService.getAssignmentById(id));
     }
 
-    @PostMapping("/{id}/submit")
-    public ResponseEntity<ApiResponse> submit(Authentication authentication,
-                                              @RequestBody AssignmentSubmissionRequest req,
-                                              @PathVariable Long id) {
-        Long currentUserId = currentUserResolver.requireUserId(authentication);
-        return ResponseEntity.ok(assignmentService.submitAssignment(id, req, currentUserId));
+    @PostMapping(value = "/{id}/submit", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ApiResponse> submit(
+            @Valid @RequestBody AssignmentSubmissionRequest req, @PathVariable Long id) {
+        return ResponseEntity.ok(assignmentService.submitAssignment(id, req));
+    }
+
+    @PostMapping(value = "/{id}/submit", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ApiResponse> submitMultipart(
+            @PathVariable Long id,
+            @RequestParam(value = "content", required = false) String content,
+            @RequestParam(value = "files", required = false) MultipartFile[] files) {
+        return ResponseEntity.ok(assignmentService.submitAssignmentMultipart(id, content, files));
+    }
+
+    @PostMapping(value = "/{id}/attachments", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ApiResponse> uploadAttachments(
+            @PathVariable Long id, @RequestParam("files") MultipartFile[] files) {
+        return ResponseEntity.ok(assignmentService.uploadAssignmentAttachments(id, files));
+    }
+
+    @DeleteMapping("/{assignmentId}/attachments/{attachmentId}")
+    public ResponseEntity<ApiResponse> deleteAttachment(
+            @PathVariable Long assignmentId, @PathVariable Long attachmentId) {
+        return ResponseEntity.ok(assignmentService.deleteAssignmentAttachment(assignmentId, attachmentId));
     }
 
     @GetMapping("/{id}/submissions")
@@ -62,8 +113,7 @@ public class AssignmentController {
     public ResponseEntity<ApiResponse> gradeAssignment(
             @PathVariable Long assignmentId,
             @PathVariable Long submissionId,
-            @RequestParam Float score
-    ) {
+            @RequestParam Float score) {
         return ResponseEntity.ok(assignmentService.gradeAssignment(assignmentId, submissionId, score));
     }
 }

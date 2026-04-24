@@ -15,4 +15,6 @@ public class ClassroomResponse {
     private String description;
     private Long ownerId;
     private LocalDateTime createdAt;
+    /** Gắn khi có user đăng nhập: có phải chủ lớp không */
+    private Boolean currentUserIsOwner;
 }
