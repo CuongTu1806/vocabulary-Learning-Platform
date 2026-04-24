@@ -1,5 +1,6 @@
 package com.example.learningVocabularyPlatform.controller;
 
+import com.example.learningVocabularyPlatform.config.CurrentUserResolver;
 import com.example.learningVocabularyPlatform.dto.request.ReviewScheduleRequest;
 import com.example.learningVocabularyPlatform.dto.request.ReviewSettingRequest;
 import com.example.learningVocabularyPlatform.dto.response.ReviewScheduleResponse;
@@ -8,6 +9,7 @@ import com.example.learningVocabularyPlatform.dto.response.SpacedRepetitionCalen
 import com.example.learningVocabularyPlatform.dto.response.SpacedRepetitionDailySummaryResponse;
 import com.example.learningVocabularyPlatform.service.ReviewScheduleService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -17,46 +19,58 @@ import java.util.List;
 @RequiredArgsConstructor
 @RequestMapping("/api/spaced_repetition")
 public class SpacedRepetitionController {
-    private static final Long USER_ID = 1L;
     private final ReviewScheduleService reviewScheduleService;
+    private final CurrentUserResolver currentUserResolver;
 
     @PostMapping("/start/{userVocabularyId}")
-    public ReviewScheduleResponse startLearning(@PathVariable Long userVocabularyId) {
-        return reviewScheduleService.startLearning(USER_ID, userVocabularyId);
+    public ReviewScheduleResponse startLearning(Authentication authentication,
+                                                @PathVariable Long userVocabularyId) {
+        Long userId = currentUserResolver.requireUserId(authentication);
+        return reviewScheduleService.startLearning(userId, userVocabularyId);
     }
 
     @PostMapping("/answer")
-    public ReviewScheduleResponse submitAnswer(@RequestBody ReviewScheduleRequest request) {
-        return reviewScheduleService.submitReview(USER_ID, request);
+    public ReviewScheduleResponse submitAnswer(Authentication authentication,
+                                               @RequestBody ReviewScheduleRequest request) {
+        Long userId = currentUserResolver.requireUserId(authentication);
+        return reviewScheduleService.submitReview(userId, request);
     }
 
     @GetMapping("/due")
-    public List<ReviewScheduleResponse> getDueCards(@RequestParam(defaultValue = "20") int limit) {
-        return reviewScheduleService.getDueCards(USER_ID, limit);
+    public List<ReviewScheduleResponse> getDueCards(Authentication authentication,
+                                                    @RequestParam(defaultValue = "20") int limit) {
+        Long userId = currentUserResolver.requireUserId(authentication);
+        return reviewScheduleService.getDueCards(userId, limit);
     }
 
     @GetMapping("/summary")
-    public SpacedRepetitionDailySummaryResponse getDailySummary() {
-        return reviewScheduleService.getDailySummary(USER_ID);
+    public SpacedRepetitionDailySummaryResponse getDailySummary(Authentication authentication) {
+        Long userId = currentUserResolver.requireUserId(authentication);
+        return reviewScheduleService.getDailySummary(userId);
     }
 
     @GetMapping("/calendar")
-    public List<SpacedRepetitionCalendarDayResponse> getMonthlyCalendar(@RequestParam(required = false) Integer year,
+    public List<SpacedRepetitionCalendarDayResponse> getMonthlyCalendar(Authentication authentication,
+                                                                         @RequestParam(required = false) Integer year,
                                                                          @RequestParam(required = false) Integer month) {
+        Long userId = currentUserResolver.requireUserId(authentication);
         LocalDate now = LocalDate.now();
         int safeYear = year == null ? now.getYear() : year;
         int safeMonth = month == null ? now.getMonthValue() : month;
-        return reviewScheduleService.getMonthlyCalendar(USER_ID, safeYear, safeMonth);
+        return reviewScheduleService.getMonthlyCalendar(userId, safeYear, safeMonth);
     }
 
     @GetMapping("/settings")
-    public ReviewSettingResponse getSettings() {
-        return reviewScheduleService.getSettings(USER_ID);
+    public ReviewSettingResponse getSettings(Authentication authentication) {
+        Long userId = currentUserResolver.requireUserId(authentication);
+        return reviewScheduleService.getSettings(userId);
     }
 
     @PutMapping("/settings")
-    public ReviewSettingResponse updateSettings(@RequestBody ReviewSettingRequest request) {
-        return reviewScheduleService.updateSettings(USER_ID, request);
+    public ReviewSettingResponse updateSettings(Authentication authentication,
+                                                @RequestBody ReviewSettingRequest request) {
+        Long userId = currentUserResolver.requireUserId(authentication);
+        return reviewScheduleService.updateSettings(userId, request);
     }
 
 

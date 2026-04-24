@@ -1,5 +1,6 @@
 package com.example.learningVocabularyPlatform.controller;
 
+import com.example.learningVocabularyPlatform.config.CurrentUserResolver;
 import com.example.learningVocabularyPlatform.dto.request.LessonRequest;
 import com.example.learningVocabularyPlatform.dto.request.VocabularyAddRequest;
 import com.example.learningVocabularyPlatform.dto.response.LessonResponse;
@@ -7,6 +8,7 @@ import com.example.learningVocabularyPlatform.dto.response.UserVocabularyRespons
 import com.example.learningVocabularyPlatform.service.LessonService;
 import com.example.learningVocabularyPlatform.service.UserVocabularyService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -15,38 +17,47 @@ import java.util.List;
 @RequiredArgsConstructor
 @RequestMapping("/api/lessons")
 public class LessonController {
+
     private final LessonService lessonService;
-    private static final Long userId = 1L;
     private final UserVocabularyService userVocabularyService;
+    private final CurrentUserResolver currentUserResolver;
 
     // Get all lessons belong to user
     @GetMapping("")
-    public List<LessonResponse> getAllLessons() {
+    public List<LessonResponse> getAllLessons(Authentication authentication) {
+        Long userId = currentUserResolver.requireUserId(authentication);
         return lessonService.getAll(userId);
     }
 
     // create lesson
     @PostMapping("")
-    public LessonResponse createLesson(@RequestBody LessonRequest lessonRequest) {
+    public LessonResponse createLesson(Authentication authentication, @RequestBody LessonRequest lessonRequest) {
+        Long userId = currentUserResolver.requireUserId(authentication);
         return lessonService.createLesson(userId, lessonRequest);
     }
 
     // update lesson
     @PutMapping("/{lessonId}")
-    public LessonResponse updateLesson(@PathVariable Long lessonId, @RequestBody LessonRequest lessonRequest) {
+    public LessonResponse updateLesson(Authentication authentication,
+                                       @PathVariable Long lessonId,
+                                       @RequestBody LessonRequest lessonRequest) {
+        Long userId = currentUserResolver.requireUserId(authentication);
         return lessonService.updateLesson(userId, lessonId, lessonRequest);
     }
 
     // delete lesson
     @DeleteMapping("/{lessonId}")
-    public void deleteLesson(@PathVariable Long lessonId) {
+    public void deleteLesson(Authentication authentication, @PathVariable Long lessonId) {
+        Long userId = currentUserResolver.requireUserId(authentication);
         lessonService.deleteLesson(userId, lessonId);
     }
 
     // add vocab, only vocab belong to user
     @PostMapping("{lessonId}/vocabularies")
-    public UserVocabularyResponse addVocab(@PathVariable Long lessonId,
+    public UserVocabularyResponse addVocab(Authentication authentication,
+                                           @PathVariable Long lessonId,
                                            @RequestBody VocabularyAddRequest request) {
+        Long userId = currentUserResolver.requireUserId(authentication);
         return lessonService.addVocab(lessonId, request, userId);
     }
 

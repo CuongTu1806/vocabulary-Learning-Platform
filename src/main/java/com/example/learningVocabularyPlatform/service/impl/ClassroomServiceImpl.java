@@ -171,7 +171,7 @@ public class ClassroomServiceImpl implements ClassroomService {
     }
 
     @Override
-    public ApiResponse joinClassroom(Long id) {
+        public ApiResponse joinClassroom(Long id, Long currentUserId) {
         ClassroomEntity classroom = classroomRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lớp học!"));
 

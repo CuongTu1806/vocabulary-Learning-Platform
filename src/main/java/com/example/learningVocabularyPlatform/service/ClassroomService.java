@@ -6,7 +6,7 @@ import com.example.learningVocabularyPlatform.dto.response.ApiResponse;
 
 public interface ClassroomService {
     // Create class
-    ApiResponse createClassroom(ClassroomRequest classroomRequest);
+    ApiResponse createClassroom(Long currentUserId, ClassroomRequest classroomRequest);
 
     // Update class
     ApiResponse updateClassroom(Long id, ClassroomRequest classroomRequest);
@@ -15,10 +15,10 @@ public interface ClassroomService {
     ApiResponse deleteClassroom(Long id);
 
     // Join class
-    ApiResponse joinClassroom(Long id);
+    ApiResponse joinClassroom(Long id, Long currentUserId);
 
     // Leave class
-    ApiResponse leaveClassroom(Long id);
+    ApiResponse leaveClassroom(Long id, Long currentUserId);
 
     // Invite member
     ApiResponse inviteMembers(Long id, ClassMemberRequest classMemberRequest);

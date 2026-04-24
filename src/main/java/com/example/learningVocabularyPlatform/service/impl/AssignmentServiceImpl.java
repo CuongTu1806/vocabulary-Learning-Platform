@@ -68,7 +68,7 @@ public class AssignmentServiceImpl implements AssignmentService {
 
     @Override
     @Transactional
-    public ApiResponse createAssignment(AssignmentRequest req) {
+        public ApiResponse createAssignment(AssignmentRequest req, Long currentUserId) {
         ClassroomEntity classroom = classroomRepository.findById(req.getClassId())
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lớp học"));
         UserEntity user = authenticatedUserService.requireCurrentUser();

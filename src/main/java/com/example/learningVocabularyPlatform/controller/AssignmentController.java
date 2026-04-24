@@ -1,5 +1,6 @@
 package com.example.learningVocabularyPlatform.controller;
 
+import com.example.learningVocabularyPlatform.config.CurrentUserResolver;
 import com.example.learningVocabularyPlatform.dto.request.AssignmentRequest;
 import com.example.learningVocabularyPlatform.dto.request.AssignmentSubmissionRequest;
 import com.example.learningVocabularyPlatform.dto.response.ApiResponse;
@@ -12,6 +13,7 @@ import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -23,6 +25,7 @@ import java.nio.charset.StandardCharsets;
 public class AssignmentController {
 
     private final AssignmentService assignmentService;
+    private final CurrentUserResolver currentUserResolver;
 
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<ApiResponse> create(@Valid @RequestBody AssignmentRequest req) {
