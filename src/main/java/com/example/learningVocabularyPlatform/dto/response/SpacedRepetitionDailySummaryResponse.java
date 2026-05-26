@@ -9,6 +9,7 @@ import lombok.*;
 @AllArgsConstructor
 public class SpacedRepetitionDailySummaryResponse {
     private long learningDue;
+    private long relearningDue;
     private long reviewDue;
     private long totalDue;
 }

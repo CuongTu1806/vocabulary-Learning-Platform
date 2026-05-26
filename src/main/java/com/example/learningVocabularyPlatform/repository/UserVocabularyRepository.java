@@ -12,6 +12,10 @@ import java.util.List;
 public interface UserVocabularyRepository extends JpaRepository<UserVocabularyEntity, Long> {
     List<UserVocabularyEntity> findByLesson_Id(Long lessonId);
 
+       java.util.Optional<UserVocabularyEntity> findByIdAndLesson_Id(Long id, Long lessonId);
+
+       void deleteByLesson_Id(Long lessonId);
+
     List<UserVocabularyEntity> findByWordContaining(String word);
 
     @Query("SELECT uv FROM UserVocabularyEntity uv WHERE " +

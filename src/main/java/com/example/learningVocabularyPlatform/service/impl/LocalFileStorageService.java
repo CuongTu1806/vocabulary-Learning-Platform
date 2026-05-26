@@ -4,7 +4,7 @@ import com.example.learningVocabularyPlatform.config.StorageProperties;
 import com.example.learningVocabularyPlatform.exception.ResourceNotFoundException;
 import com.example.learningVocabularyPlatform.service.FileStorageService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.core.io.PathResource;
+import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -92,7 +92,7 @@ public class LocalFileStorageService implements FileStorageService {
         if (!p.startsWith(rootPath()) || !Files.isRegularFile(p)) {
             throw new ResourceNotFoundException("File không tồn tại");
         }
-        return new PathResource(p);
+        return new FileSystemResource(p);
     }
 
     @Override

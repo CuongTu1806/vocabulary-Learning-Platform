@@ -20,6 +20,10 @@ public class LessonMapper {
                 .createdAt(ls.getCreatedAt())
                 .description(ls.getDescription())
                 .numberOfWords(numberOfWords)
+                .ownerId(ls.getUser() != null ? ls.getUser().getId() : null)
+                .ownerUsername(ls.getUser() != null ? ls.getUser().getUsername() : null)
+                .visibility(ls.getVisibility())
+                .downloadCount(ls.getDownloadCount() != null ? ls.getDownloadCount() : 0)
                 .build();
     }
 
@@ -27,6 +31,8 @@ public class LessonMapper {
         return LessonEntity.builder()
                 .description(request.getDescription())
                 .title(request.getTitle())
+                .visibility(request.getVisibility())
+                .downloadCount(0)
                 .build();
     }
 }

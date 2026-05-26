@@ -23,6 +23,12 @@ public class LessonEntity extends BaseEntity {
     @Column(name = "description", length = 500)
     private String description; // Mô tả bài học (cho personal lesson)
 
+    @Column(name = "visibility", length = 20)
+    private String visibility;
+
+    @Column(name = "download_count")
+    private Integer downloadCount;
+
     // User 1 - N Lesson
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")

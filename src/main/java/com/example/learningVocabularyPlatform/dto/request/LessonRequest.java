@@ -11,4 +11,5 @@ import lombok.*;
 public class LessonRequest {
     private String title;
     private String description;
+    private String visibility;
 }

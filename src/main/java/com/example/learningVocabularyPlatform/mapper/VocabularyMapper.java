@@ -1,11 +1,9 @@
 package com.example.learningVocabularyPlatform.mapper;
 
 import com.example.learningVocabularyPlatform.dto.request.VocabularyAddRequest;
-import com.example.learningVocabularyPlatform.dto.request.VocabularyRequest;
 import com.example.learningVocabularyPlatform.dto.response.UserVocabularyResponse;
 import com.example.learningVocabularyPlatform.entity.UserVocabularyEntity;
 import com.example.learningVocabularyPlatform.entity.VocabularyEntity;
-import org.antlr.v4.runtime.Vocabulary;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -50,6 +48,11 @@ public class VocabularyMapper {
                 .imagePath(request.getImage_path())
                 .meaning(request.getMeaning())
                 .pronunciation(request.getPronunciation())
+                .build();
+    }
+
+    public UserVocabularyEntity convertVocabularyToUserVocab(VocabularyEntity vocabulary) {
+        return UserVocabularyEntity.builder()
                 .build();
     }
 }

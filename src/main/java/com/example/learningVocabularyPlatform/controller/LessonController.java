@@ -29,6 +29,23 @@ public class LessonController {
         return lessonService.getAll(userId);
     }
 
+    @GetMapping("/public/search")
+    public List<LessonResponse> searchPublicLessons(@RequestParam(required = false) String query) {
+        return lessonService.searchPublicLessons(query);
+    }
+
+    @GetMapping("/{lessonId}")
+    public LessonResponse getLesson(Authentication authentication, @PathVariable Long lessonId) {
+        Long userId = currentUserResolver.requireUserId(authentication);
+        return lessonService.getLesson(lessonId, userId);
+    }
+
+    @PostMapping("/{lessonId}/download")
+    public LessonResponse importLesson(Authentication authentication, @PathVariable Long lessonId) {
+        Long userId = currentUserResolver.requireUserId(authentication);
+        return lessonService.importLesson(lessonId, userId);
+    }
+
     // create lesson
     @PostMapping("")
     public LessonResponse createLesson(Authentication authentication, @RequestBody LessonRequest lessonRequest) {
@@ -63,21 +80,25 @@ public class LessonController {
 
     // hiển thị toàn bộ vocab trong lesson
     @GetMapping("/{lessonId}/vocabularies")
-    public List<UserVocabularyResponse> getVocabInLesson(@PathVariable Long lessonId){
-        return lessonService.getVocabInLesson(lessonId);
+    public List<UserVocabularyResponse> getVocabInLesson(Authentication authentication, @PathVariable Long lessonId){
+        Long userId = currentUserResolver.requireUserId(authentication);
+        return lessonService.getVocabInLesson(lessonId, userId);
     }
 
     // update a vocabulary in lesson, system vocab can not be edited
     @PutMapping("/{lessonId}/vocabularies/{vocabId}")
-    public UserVocabularyResponse updateVocabInLesson(@PathVariable Long lessonId,
+    public UserVocabularyResponse updateVocabInLesson(Authentication authentication,
+                                              @PathVariable Long lessonId,
                                               @PathVariable Long vocabId,
                                               @RequestBody VocabularyAddRequest request) {
-        return userVocabularyService.updateVocabInLesson(vocabId, request);
+        Long userId = currentUserResolver.requireUserId(authentication);
+        return userVocabularyService.updateVocabInLesson(lessonId, vocabId, request, userId);
     }
 
     // delete a vocab in lesson
     @DeleteMapping("/{lessonId}/vocabularies/{vocabId}")
-    public void deleteVocabInLesson(@PathVariable Long lessonId, @PathVariable Long vocabId) {
-        userVocabularyService.deleteVocabInLesson(vocabId);
+    public void deleteVocabInLesson(Authentication authentication, @PathVariable Long lessonId, @PathVariable Long vocabId) {
+        Long userId = currentUserResolver.requireUserId(authentication);
+        userVocabularyService.deleteVocabInLesson(lessonId, vocabId, userId);
     }
 }

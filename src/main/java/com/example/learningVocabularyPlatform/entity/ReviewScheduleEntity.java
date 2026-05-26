@@ -7,7 +7,14 @@ import lombok.experimental.SuperBuilder;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "review_schedule")
+@Table(
+    name = "review_schedule",
+    indexes = {
+        @Index(name = "idx_review_schedule_user_id", columnList = "user_id"),
+        @Index(name = "idx_review_schedule_user_next_review", columnList = "user_id,next_review_date"),
+        @Index(name = "idx_review_schedule_user_last_review", columnList = "user_id,last_review_date")
+    }
+)
 @Getter
 @Setter
 @SuperBuilder
@@ -39,6 +46,10 @@ public class ReviewScheduleEntity extends BaseEntity {
 
     @Column(name = "last_review_date")
     private LocalDateTime lastReviewDate;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id")
+    private UserEntity user;
 
     // user_vocabulary 1 - N review_schedule
     @ManyToOne(fetch = FetchType.LAZY)

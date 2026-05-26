@@ -2,16 +2,21 @@ package com.example.learningVocabularyPlatform.service.impl;
 
 import com.example.learningVocabularyPlatform.dto.request.VocabularyAddRequest;
 import com.example.learningVocabularyPlatform.dto.response.UserVocabularyResponse;
+import com.example.learningVocabularyPlatform.entity.LessonEntity;
 import com.example.learningVocabularyPlatform.entity.UserVocabularyEntity;
+import com.example.learningVocabularyPlatform.exception.ResourceNotFoundException;
 import com.example.learningVocabularyPlatform.entity.VocabularyEntity;
 import com.example.learningVocabularyPlatform.mapper.VocabularyMapper;
+import com.example.learningVocabularyPlatform.repository.LessonRepository;
 import com.example.learningVocabularyPlatform.repository.UserVocabularyRepository;
 import com.example.learningVocabularyPlatform.repository.VocabularyRepository;
 import com.example.learningVocabularyPlatform.service.UserVocabularyService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -21,7 +26,11 @@ import java.util.List;
 public class UserVocabularyServiceImpl implements UserVocabularyService {
 
     private static final int SEARCH_PAGE_SIZE = 30;
+    private static final String LESSON_NOT_FOUND = "Lesson not found";
+    private static final String LESSON_NOT_OWNED = "Ban khong co quyen sua xoa bai hoc nay";
+    private static final String USER_VOCAB_NOT_FOUND = "User Vocabulary not found";
 
+    private final LessonRepository lessonRepository;
     private final UserVocabularyRepository userVocabularyRepository;
     private final VocabularyMapper vocabularyMapper;
     private final VocabularyRepository vocabularyRepository;
@@ -52,8 +61,14 @@ public class UserVocabularyServiceImpl implements UserVocabularyService {
 
     // update a vocabulary in lesson, system vocab can not be edited
     @Override
-    public UserVocabularyResponse updateVocabInLesson(Long vocabId, VocabularyAddRequest request) {
-        UserVocabularyEntity uvc = userVocabularyRepository.findById(vocabId).orElseThrow(() -> new RuntimeException("User Vocabulary not found"));
+    public UserVocabularyResponse updateVocabInLesson(Long lessonId, Long vocabId, VocabularyAddRequest request, Long userId) {
+        LessonEntity lesson = lessonRepository.findById(lessonId)
+                .orElseThrow(() -> new ResourceNotFoundException(LESSON_NOT_FOUND));
+        if (lesson.getUser() == null || !lesson.getUser().getId().equals(userId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, LESSON_NOT_OWNED);
+        }
+        UserVocabularyEntity uvc = userVocabularyRepository.findByIdAndLesson_Id(vocabId, lessonId)
+                .orElseThrow(() -> new ResourceNotFoundException(USER_VOCAB_NOT_FOUND));
         uvc.setWord(request.getWord());
         uvc.setPos(request.getPos());
         uvc.setAudioPath(request.getAudio_path());
@@ -66,7 +81,14 @@ public class UserVocabularyServiceImpl implements UserVocabularyService {
     }
 
     @Override
-    public void deleteVocabInLesson(Long vocabId) {
-        userVocabularyRepository.deleteById(vocabId);
+    public void deleteVocabInLesson(Long lessonId, Long vocabId, Long userId) {
+        LessonEntity lesson = lessonRepository.findById(lessonId)
+                .orElseThrow(() -> new ResourceNotFoundException(LESSON_NOT_FOUND));
+        if (lesson.getUser() == null || !lesson.getUser().getId().equals(userId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, LESSON_NOT_OWNED);
+        }
+        UserVocabularyEntity uvc = userVocabularyRepository.findByIdAndLesson_Id(vocabId, lessonId)
+                .orElseThrow(() -> new ResourceNotFoundException(USER_VOCAB_NOT_FOUND));
+        userVocabularyRepository.delete(uvc);
     }
 }

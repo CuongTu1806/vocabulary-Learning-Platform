@@ -9,7 +9,7 @@ import java.util.List;
 public interface UserVocabularyService {
     List<UserVocabularyResponse> searchVocabulary(String keyword);
 
-    UserVocabularyResponse updateVocabInLesson(Long vocabId, VocabularyAddRequest request);
+    UserVocabularyResponse updateVocabInLesson(Long lessonId, Long vocabId, VocabularyAddRequest request, Long userId);
 
-    void deleteVocabInLesson(Long vocabId);
+    void deleteVocabInLesson(Long lessonId, Long vocabId, Long userId);
 }

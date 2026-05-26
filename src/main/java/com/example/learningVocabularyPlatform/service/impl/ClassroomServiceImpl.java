@@ -43,8 +43,8 @@ public class ClassroomServiceImpl implements ClassroomService {
         return classMemberRepository.existsByClassroomIdAndUserId(classroom.getId(), user.getId());
     }
 
-    @Override
-    public ApiResponse createClassroom(ClassroomRequest req) {
+        @Override
+        public ApiResponse createClassroom(Long currentUserId, ClassroomRequest req) {
         UserEntity owner = authenticatedUserService.requireCurrentUser();
 
         ClassroomEntity classroom = ClassroomEntity.builder()
@@ -197,8 +197,8 @@ public class ClassroomServiceImpl implements ClassroomService {
                 .build();
     }
 
-    @Override
-    public ApiResponse leaveClassroom(Long id) {
+        @Override
+        public ApiResponse leaveClassroom(Long id, Long currentUserId) {
         UserEntity user = authenticatedUserService.requireCurrentUser();
         boolean isMember = classMemberRepository.existsByClassroomIdAndUserId(id, user.getId());
         if (!isMember) {

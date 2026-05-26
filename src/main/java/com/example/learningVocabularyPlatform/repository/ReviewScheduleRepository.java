@@ -10,38 +10,103 @@ import java.util.List;
 import java.util.Optional;
 
 public interface ReviewScheduleRepository extends JpaRepository<ReviewScheduleEntity, Long> {
-    Optional<ReviewScheduleEntity> findTopByUserVocabulary_IdOrderByUpdatedAtDesc(Long userVocabularyId);
+        Optional<ReviewScheduleEntity> findTopByUser_IdAndUserVocabulary_IdOrderByUpdatedAtDesc(Long userId, Long userVocabularyId);
 
+        boolean existsByUser_IdAndUserVocabulary_Id(Long userId, Long userVocabularyId);
+
+        void deleteByUserVocabulary_Lesson_Id(Long lessonId);
+
+                @Query("""
+                                                SELECT rs
+                                                FROM ReviewScheduleEntity rs
+                                                WHERE rs.user.id = :userId
+                                                        AND rs.nextReviewDate <= :now
+                                                ORDER BY rs.nextReviewDate ASC
+                                                """)
     List<ReviewScheduleEntity> findByUserVocabulary_User_IdAndNextReviewDateLessThanEqualOrderByNextReviewDateAsc(
-	    Long userId,
-	    LocalDateTime now
+                                                @Param("userId") Long userId,
+                                                @Param("now") LocalDateTime now
     );
 
+                @Query("""
+                                                SELECT rs
+                                                FROM ReviewScheduleEntity rs
+                                                WHERE rs.user.id = :userId
+                                                        AND (
+                                                                LOWER(COALESCE(rs.state, '')) IN ('learning', 'relearning')
+                                                                OR rs.nextReviewDate <= :now
+                                                        )
+                                                ORDER BY
+                                                        CASE WHEN LOWER(COALESCE(rs.state, '')) IN ('learning', 'relearning') THEN 0 ELSE 1 END,
+                                                        rs.nextReviewDate ASC
+                                                """)
+                List<ReviewScheduleEntity> findActiveReviewQueueByUserId(
+                                                @Param("userId") Long userId,
+                                                @Param("now") LocalDateTime now
+                );
+
+                @Query("""
+                                                SELECT rs
+                                                FROM ReviewScheduleEntity rs
+                                                WHERE rs.user.id = :userId
+                                                        AND rs.nextReviewDate BETWEEN :start AND :end
+                                                ORDER BY rs.nextReviewDate ASC
+                                                """)
     List<ReviewScheduleEntity> findByUserVocabulary_User_IdAndNextReviewDateBetweenOrderByNextReviewDateAsc(
-	    Long userId,
-	    LocalDateTime start,
-	    LocalDateTime end
+                                                @Param("userId") Long userId,
+                                                @Param("start") LocalDateTime start,
+                                                @Param("end") LocalDateTime end
     );
 
+                @Query("""
+                                                SELECT COUNT(rs)
+                                                FROM ReviewScheduleEntity rs
+                                                WHERE rs.user.id = :userId
+                                                        AND rs.nextReviewDate <= :now
+                                                        AND rs.state IN :states
+                                                """)
     long countByUserVocabulary_User_IdAndNextReviewDateLessThanEqualAndStateIn(
-	    Long userId,
-	    LocalDateTime now,
-	    List<String> states
+                                                @Param("userId") Long userId,
+                                                @Param("now") LocalDateTime now,
+                                                @Param("states") List<String> states
+    );
+
+    @Query("""
+            SELECT COUNT(rs)
+            FROM ReviewScheduleEntity rs
+            WHERE rs.user.id = :userId
+              AND LOWER(COALESCE(rs.state, '')) IN :states
+            """)
+    long countActiveLearningCardsByState(
+            @Param("userId") Long userId,
+            @Param("states") List<String> states
     );
     
     // New custom queries for profile stats
+    @Query("""
+            SELECT rs
+            FROM ReviewScheduleEntity rs
+            WHERE rs.user.id = :userId
+              AND rs.lastReviewDate > :after
+            """)
     List<ReviewScheduleEntity> findByUserVocabulary_User_IdAndLastReviewDateAfter(
-            Long userId,
-            LocalDateTime after
+            @Param("userId") Long userId,
+            @Param("after") LocalDateTime after
     );
     
+    @Query("""
+            SELECT rs
+            FROM ReviewScheduleEntity rs
+            WHERE rs.user.id = :userId
+              AND rs.lastReviewDate BETWEEN :start AND :end
+            """)
     List<ReviewScheduleEntity> findByUserVocabulary_User_IdAndLastReviewDateBetween(
-            Long userId,
-            LocalDateTime start,
-            LocalDateTime end
+            @Param("userId") Long userId,
+            @Param("start") LocalDateTime start,
+            @Param("end") LocalDateTime end
     );
     
-    @Query("SELECT rs FROM ReviewScheduleEntity rs WHERE rs.userVocabulary.user.id = :userId " +
+    @Query("SELECT rs FROM ReviewScheduleEntity rs WHERE rs.user.id = :userId " +
            "AND rs.lastReviewDate IS NOT NULL " +
            "AND rs.lastReviewDate >= :startDate " +
            "AND rs.lastReviewDate < :endDate " +
@@ -51,13 +116,13 @@ public interface ReviewScheduleRepository extends JpaRepository<ReviewScheduleEn
             @Param("startDate") LocalDateTime startDate,
             @Param("endDate") LocalDateTime endDate
     );
-    @Query("SELECT rs FROM ReviewScheduleEntity rs WHERE rs.userVocabulary.user.id = :userId")
+    @Query("SELECT rs FROM ReviewScheduleEntity rs WHERE rs.user.id = :userId")
     List<ReviewScheduleEntity> findAllByUserId(@Param("userId") Long userId);
     
     @Query(value = "SELECT rs.* FROM review_schedule rs " +
-           "INNER JOIN (SELECT user_vocabulary_id, MAX(id) as max_id FROM review_schedule GROUP BY user_vocabulary_id) " +
+            "INNER JOIN (SELECT user_vocabulary_id, MAX(id) as max_id FROM review_schedule WHERE user_id = :userId GROUP BY user_vocabulary_id) " +
            "latest ON rs.id = latest.max_id " +
-           "WHERE rs.user_vocabulary_id IN (SELECT id FROM user_vocabulary WHERE user_id = :userId)", 
+            "WHERE rs.user_id = :userId", 
            nativeQuery = true)
     List<ReviewScheduleEntity> findLatestReviewForEachVocabulary(@Param("userId") Long userId);
 }
