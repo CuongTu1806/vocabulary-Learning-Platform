@@ -9,8 +9,9 @@ import com.example.learningVocabularyPlatform.repository.UserVocabularyRepositor
 import com.example.learningVocabularyPlatform.repository.VocabularyRepository;
 import com.example.learningVocabularyPlatform.service.UserVocabularyService;
 import lombok.RequiredArgsConstructor;
-import org.apache.catalina.User;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -18,20 +19,32 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class UserVocabularyServiceImpl implements UserVocabularyService {
+
+    private static final int SEARCH_PAGE_SIZE = 30;
+
     private final UserVocabularyRepository userVocabularyRepository;
     private final VocabularyMapper vocabularyMapper;
     private final VocabularyRepository vocabularyRepository;
 
-    // search vocab
     @Override
+    @Transactional(readOnly = true)
     public List<UserVocabularyResponse> searchVocabulary(String keyword) {
-        List<VocabularyEntity> vc = vocabularyRepository.findByWordContaining(keyword);
-        List<UserVocabularyEntity> uvc = userVocabularyRepository.findByWordContaining(keyword);
+        if (keyword == null || keyword.isBlank()) {
+            return List.of();
+        }
+        String q = keyword.trim();
+        var page = PageRequest.of(0, SEARCH_PAGE_SIZE);
+
+        List<VocabularyEntity> vc =
+                vocabularyRepository.searchByWordOrMeaningContaining(q, page);
+        List<UserVocabularyEntity> uvc =
+                userVocabularyRepository.searchByWordOrMeaningContaining(q, page);
+
         List<UserVocabularyResponse> responses = new ArrayList<>();
-        for(VocabularyEntity v : vc){
+        for (VocabularyEntity v : vc) {
             responses.add(vocabularyMapper.convertVocabularyToResponse(v));
         }
-        for(UserVocabularyEntity u : uvc){
+        for (UserVocabularyEntity u : uvc) {
             responses.add(vocabularyMapper.convertUserVocabularyToResponse(u));
         }
         return responses;
