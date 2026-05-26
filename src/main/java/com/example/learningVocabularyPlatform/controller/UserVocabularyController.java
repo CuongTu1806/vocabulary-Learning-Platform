@@ -15,7 +15,8 @@ public class UserVocabularyController {
     private final UserVocabularyService userVocabularyService;
 
     @GetMapping("/search")
-    public List<UserVocabularyResponse> searchVocabulary(@RequestParam String query){
+    public List<UserVocabularyResponse> searchVocabulary(
+            @RequestParam(name = "query", required = false) String query) {
         return userVocabularyService.searchVocabulary(query);
     }
 }
