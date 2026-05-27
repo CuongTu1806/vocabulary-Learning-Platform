@@ -164,8 +164,11 @@ public class ReviewScheduleServiceImpl implements ReviewScheduleService {
 	@Override
 	public List<ReviewScheduleResponse> getDueCards(Long userId, int limit) {
 		int safeLimit = Math.max(1, limit);
+		LocalDate today = LocalDate.now();
+		LocalDateTime startOfDay = today.atStartOfDay();
+		LocalDateTime endOfDay = today.atTime(LocalTime.MAX);
 		List<ReviewScheduleEntity> dueSchedules = reviewScheduleRepository
-				.findActiveReviewQueueByUserId(userId, LocalDateTime.now());
+				.findByUserVocabulary_User_IdAndNextReviewDateBetweenOrderByNextReviewDateAsc(userId, startOfDay, endOfDay);
 
 		List<ReviewScheduleResponse> responses = new ArrayList<>();
 		for (ReviewScheduleEntity schedule : dueSchedules) {
@@ -179,14 +182,26 @@ public class ReviewScheduleServiceImpl implements ReviewScheduleService {
 
 	@Override
 	public SpacedRepetitionDailySummaryResponse getDailySummary(Long userId) {
-		LocalDateTime now = LocalDateTime.now();
-		long learningDue = reviewScheduleRepository.countActiveLearningCardsByState(userId, List.of(STATE_LEARNING));
-		long relearningDue = reviewScheduleRepository.countActiveLearningCardsByState(userId, List.of(STATE_RELEARNING));
-		long reviewDue = reviewScheduleRepository.countByUserVocabulary_User_IdAndNextReviewDateLessThanEqualAndStateIn(
-				userId,
-				now,
-				List.of(STATE_REVIEW)
-		);
+		LocalDate today = LocalDate.now();
+		LocalDateTime startOfDay = today.atStartOfDay();
+		LocalDateTime endOfDay = today.atTime(LocalTime.MAX);
+
+		List<ReviewScheduleEntity> schedules = reviewScheduleRepository
+				.findByUserVocabulary_User_IdAndNextReviewDateBetweenOrderByNextReviewDateAsc(userId, startOfDay, endOfDay);
+
+		long learningDue = 0;
+		long relearningDue = 0;
+		long reviewDue = 0;
+		for (ReviewScheduleEntity schedule : schedules) {
+			String state = schedule.getState() == null ? "" : schedule.getState().toLowerCase(Locale.ROOT);
+			if (STATE_LEARNING.equals(state)) {
+				learningDue++;
+			} else if (STATE_RELEARNING.equals(state)) {
+				relearningDue++;
+			} else if (STATE_REVIEW.equals(state)) {
+				reviewDue++;
+			}
+		}
 
 		return SpacedRepetitionDailySummaryResponse.builder()
 				.learningDue(learningDue)
