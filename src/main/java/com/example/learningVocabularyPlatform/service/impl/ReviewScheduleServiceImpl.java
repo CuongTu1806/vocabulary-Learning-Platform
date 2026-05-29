@@ -130,6 +130,10 @@ public class ReviewScheduleServiceImpl implements ReviewScheduleService {
 		int oldInterval = schedule.getIntervalDays();
 		double oldEaseFactor = schedule.getEaseFactor() <= 0 ? DEFAULT_EASE_FACTOR : schedule.getEaseFactor();
 
+		// store previous schedule values on the schedule for auditing
+		schedule.setPreviousIntervalDays(oldInterval <= 0 ? null : oldInterval);
+		schedule.setPreviousEaseFactor(oldEaseFactor <= 0 ? null : oldEaseFactor);
+
 		if (STATE_NEW.equals(schedule.getState())) {
 			schedule.setState(STATE_LEARNING);
 			schedule.setLearningStep(1);
@@ -146,12 +150,8 @@ public class ReviewScheduleServiceImpl implements ReviewScheduleService {
 
 		ReviewHistoryEntity history = ReviewHistoryEntity.builder()
 				.rating(rating.name())
-				.oldEaseFactor(oldEaseFactor)
-				.newEaseFactor(saved.getEaseFactor())
-				.oldIntervalDays(oldInterval)
-				.newIntervalDays(saved.getIntervalDays())
-				.userVocabulary(userVocabulary)
 				.reviewSchedule(saved)
+				.durationSeconds(request.getDurationSeconds())
 				.build();
 		reviewHistoryRepository.save(history);
 
@@ -209,6 +209,53 @@ public class ReviewScheduleServiceImpl implements ReviewScheduleService {
 				.reviewDue(reviewDue)
 				.totalDue(learningDue + relearningDue + reviewDue)
 				.build();
+	}
+
+	@Override
+	public java.util.List<com.example.learningVocabularyPlatform.dto.response.ReviewStatsDayResponse> getReviewStats(Long userId, java.time.LocalDate startDate, java.time.LocalDate endDate) {
+		java.time.LocalDateTime start = startDate.atStartOfDay();
+		java.time.LocalDateTime end = endDate.atTime(java.time.LocalTime.MAX);
+		List<com.example.learningVocabularyPlatform.entity.ReviewHistoryEntity> histories = reviewHistoryRepository
+				.findByReviewSchedule_UserVocabulary_User_IdAndCreatedAtBetween(userId, start, end);
+
+		// aggregate by date
+		java.util.Map<java.time.LocalDate, java.util.List<com.example.learningVocabularyPlatform.entity.ReviewHistoryEntity>> byDay = new java.util.HashMap<>();
+		for (var h : histories) {
+			java.time.LocalDate d = h.getCreatedAt().toLocalDate();
+			byDay.computeIfAbsent(d, k -> new java.util.ArrayList<>()).add(h);
+		}
+
+		java.util.List<com.example.learningVocabularyPlatform.dto.response.ReviewStatsDayResponse> result = new java.util.ArrayList<>();
+		for (var entry : byDay.entrySet()) {
+			var day = entry.getKey();
+			var list = entry.getValue();
+			long total = list.size();
+			long totalDuration = list.stream().mapToLong(h -> h.getDurationSeconds() == null ? 0 : h.getDurationSeconds()).sum();
+			// breakdown by pos (via schedule -> userVocabulary)
+			java.util.Map<String, Long> posMap = new java.util.HashMap<>();
+			for (var h : list) {
+				String pos = "unknown";
+				if (h.getReviewSchedule() != null && h.getReviewSchedule().getUserVocabulary() != null) {
+					pos = h.getReviewSchedule().getUserVocabulary().getPos();
+					if (pos == null) pos = "unknown";
+				}
+				posMap.put(pos, posMap.getOrDefault(pos, 0L) + 1L);
+			}
+			java.util.List<com.example.learningVocabularyPlatform.dto.response.PosCount> posCounts = new java.util.ArrayList<>();
+			for (var e : posMap.entrySet()) {
+				posCounts.add(com.example.learningVocabularyPlatform.dto.response.PosCount.builder().pos(e.getKey()).count(e.getValue()).build());
+			}
+
+			result.add(com.example.learningVocabularyPlatform.dto.response.ReviewStatsDayResponse.builder()
+				.date(day.toString())
+				.totalReviews(total)
+				.totalDurationSeconds(totalDuration)
+				.posBreakdown(posCounts)
+				.build());
+		}
+
+		result.sort((a,b) -> a.getDate().compareTo(b.getDate()));
+		return result;
 	}
 
 	@Override
@@ -272,7 +319,6 @@ public class ReviewScheduleServiceImpl implements ReviewScheduleService {
 				.userVocabulary(userVocabulary)
 				.state(STATE_NEW)
 				.learningStep(0)
-				.repetationLevel(0)
 				.intervalDays(-1)
 				.easeFactor(DEFAULT_EASE_FACTOR)
 				.delayFactor(DEFAULT_DELAY_FACTOR)
@@ -393,7 +439,6 @@ public class ReviewScheduleServiceImpl implements ReviewScheduleService {
 		schedule.setIntervalDays(newInterval);
 		schedule.setEaseFactor(newEF);
 		if (STATE_REVIEW.equals(schedule.getState())) {
-			schedule.setRepetationLevel(schedule.getRepetationLevel() + 1);
 			schedule.setNextReviewDate(LocalDateTime.now().plusDays(newInterval));
 		}
 	}
@@ -401,7 +446,7 @@ public class ReviewScheduleServiceImpl implements ReviewScheduleService {
 	private void graduateToReview(ReviewScheduleEntity schedule) {
 		schedule.setState(STATE_REVIEW);
 		schedule.setLearningStep(0);
-		schedule.setRepetationLevel(Math.max(1, schedule.getRepetationLevel() + 1));
+		// repetition level removed; no-op
 		schedule.setIntervalDays(DEFAULT_INTERVAL_DAYS);
 		schedule.setNextReviewDate(LocalDateTime.now().plusDays(schedule.getIntervalDays()));
 	}
@@ -482,7 +527,7 @@ public class ReviewScheduleServiceImpl implements ReviewScheduleService {
 				.meaning(entity.getUserVocabulary().getVocabulary() == null ? entity.getUserVocabulary().getMeaning() : entity.getUserVocabulary().getVocabulary().getMeaning())
 				.state(entity.getState())
 				.learningStep(entity.getLearningStep())
-				.repetationLevel(entity.getRepetationLevel())
+
 				.intervalDays(entity.getIntervalDays())
 				.easeFactor(entity.getEaseFactor())
 				.delayFactor(entity.getDelayFactor())
