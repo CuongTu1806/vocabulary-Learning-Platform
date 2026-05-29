@@ -16,8 +16,8 @@ public class ServerLeaderboardEntity extends BaseEntity {
     @Column(name = "rating")
     private int rating;
 
-    @Column(name = "rank_position")
-    private int rankPosition;
+    @Column(name = "max_rating")
+    private Integer maxRating;
 
     @Column(name = "contest_count")
     private int contestCount;

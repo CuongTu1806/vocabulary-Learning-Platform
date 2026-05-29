@@ -1,11 +1,14 @@
 package com.example.learningVocabularyPlatform.service;
 
 import com.example.learningVocabularyPlatform.dto.response.*;
+import com.example.learningVocabularyPlatform.entity.ReviewHistoryEntity;
 import com.example.learningVocabularyPlatform.entity.ReviewScheduleEntity;
+import com.example.learningVocabularyPlatform.entity.ServerLeaderboardEntity;
 import com.example.learningVocabularyPlatform.entity.UserEntity;
 import com.example.learningVocabularyPlatform.entity.UserVocabularyEntity;
-import com.example.learningVocabularyPlatform.repository.QuizResultRepository;
+import com.example.learningVocabularyPlatform.repository.ReviewHistoryRepository;
 import com.example.learningVocabularyPlatform.repository.ReviewScheduleRepository;
+import com.example.learningVocabularyPlatform.repository.ServerLeaderboardRepository;
 import com.example.learningVocabularyPlatform.repository.UserRepository;
 import com.example.learningVocabularyPlatform.repository.UserVocabularyRepository;
 import lombok.RequiredArgsConstructor;
@@ -15,7 +18,6 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -26,23 +28,32 @@ public class ProfileStatService {
     private final UserRepository userRepository;
     private final UserVocabularyRepository userVocabularyRepository;
     private final ReviewScheduleRepository reviewScheduleRepository;
-    private final QuizResultRepository quizResultRepository;
+    private final ReviewHistoryRepository reviewHistoryRepository;
+    private final ServerLeaderboardRepository serverLeaderboardRepository;
 
     public ProfileStatResponse getProfileStats(Long userId, String period) {
         UserEntity user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
         
         LocalDateTime periodStartDate = getPeriodStartDate(period);
+        ServerLeaderboardEntity leaderboard = serverLeaderboardRepository.findByUser_Id(userId).orElse(null);
+        int currentRankPoints = leaderboard != null ? leaderboard.getRating() : 0;
+        int maxRating = 0;
+        if (leaderboard != null && leaderboard.getMaxRating() != null) {
+            maxRating = leaderboard.getMaxRating();
+        }
+        int contestsParticipated = leaderboard != null ? leaderboard.getContestCount() : 0;
         
         return ProfileStatResponse.builder()
                 .username(user.getUsername())
                 .email(user.getEmail())
                 .createdAt(user.getCreatedAt().toString())
-                .currentRank("Silver")
-                .currentRankPoints(2450)
-                .maxRankPoints(3500)
-                .maxRank("Gold")
-                .contestsParticipated(24)
+            .currentRank(getRankLabel(currentRankPoints))
+            .currentRankPoints(currentRankPoints)
+            .maxRankPoints(maxRating)
+            .maxRating(maxRating)
+            .maxRank(getRankLabel(maxRating))
+            .contestsParticipated(contestsParticipated)
                 .daysOnlineThisMonth(calculateDaysOnlineThisMonth(user))
                 .currentStreak(calculateCurrentStreak(user))
                 .reviews(getReviewsStats(user, period, periodStartDate))
@@ -50,12 +61,11 @@ public class ProfileStatService {
                 .cardCount(getCardCountStats(user))
                 .reviewInterval(getReviewIntervalStats(user))
                 .cardEase(getCardEaseStats(user))
-                .add(getAddStats(user, period, periodStartDate))
+                .add(getAddStats(user, period))
                 .build();
     }
 
     private ReviewsStatResponse getReviewsStats(UserEntity user, String period, LocalDateTime periodStartDate) {
-        // Get data for all days in the period
         List<ReviewsChartDataDto> data = generateReviewsChartData(period, user, periodStartDate);
         
         // Calculate stats from the data
@@ -85,8 +95,23 @@ public class ProfileStatService {
                 .build();
     }
 
+    private String getRankLabel(int points) {
+        if (points >= 1700) {
+            return "Kim cương";
+        }
+        if (points >= 1500) {
+            return "Vàng";
+        }
+        if (points >= 1300) {
+            return "Bạc";
+        }
+        if (points >= 1000) {
+            return "Đồng";
+        }
+        return "Chưa xếp hạng";
+    }
+
     private TimeStatResponse getTimeStats(UserEntity user, String period, LocalDateTime periodStartDate) {
-        // Get data for all days in the period
         List<TimeChartDataDto> data = generateTimeChartData(period, user, periodStartDate);
         
         // Calculate stats from the data
@@ -129,18 +154,12 @@ public class ProfileStatService {
     }
 
     /**
-     * Phân loại từ vựng trên <strong>tất cả</strong> {@code user_vocabulary} của người dùng.
-     * Trước đây chỉ đếm các dòng trong {@code review_schedule}, nên từ chưa bắt đầu SRS bị thiếu
-     * (nhìn như chỉ có từ vừa học trong ngày).
+     * Phân loại từ vựng dựa trên {@code review_schedule}.
+     * Theo mô hình hiện tại, mỗi từ mới tạo đã có schedule ngay, nên đây là nguồn dữ liệu đúng để thống kê.
      */
     private CardCountStatResponse getCardCountStats(UserEntity user) {
         Long userId = user.getId();
-        List<UserVocabularyEntity> allCards = userVocabularyRepository.findByUser_Id(userId);
-        List<ReviewScheduleEntity> latestSchedules =
-                reviewScheduleRepository.findLatestReviewForEachVocabulary(userId);
-
-        Map<Long, ReviewScheduleEntity> scheduleByUvId = latestSchedules.stream()
-                .collect(Collectors.toMap(rs -> rs.getUserVocabulary().getId(), rs -> rs, (a, b) -> b));
+        List<ReviewScheduleEntity> schedules = reviewScheduleRepository.findAllByUserId(userId);
 
         long newCount = 0;
         long learning = 0;
@@ -148,11 +167,10 @@ public class ProfileStatService {
         long young = 0;
         long mature = 0;
 
-        for (UserVocabularyEntity uv : allCards) {
-            ReviewScheduleEntity rs = scheduleByUvId.get(uv.getId());
-            String state = rs != null && rs.getState() != null ? rs.getState().trim() : "";
+        for (ReviewScheduleEntity rs : schedules) {
+            String state = rs.getState() != null ? rs.getState().trim() : "";
 
-            if (rs == null || state.isEmpty() || "new".equalsIgnoreCase(state)) {
+            if (state.isEmpty() || "new".equalsIgnoreCase(state)) {
                 newCount++;
                 continue;
             }
@@ -192,10 +210,11 @@ public class ProfileStatService {
     }
 
     private ReviewIntervalStatResponse getReviewIntervalStats(UserEntity user) {
-        // Query latest review schedule for each vocabulary to get current interval
-        List<ReviewScheduleEntity> latestReviews = reviewScheduleRepository.findLatestReviewForEachVocabulary(user.getId());
-        
-        if (latestReviews.isEmpty()) {
+        List<ReviewScheduleEntity> reviewCards = reviewScheduleRepository.findAllByUserId(user.getId()).stream()
+            .filter(schedule -> "review".equalsIgnoreCase(schedule.getState()))
+            .toList();
+
+        if (reviewCards.isEmpty()) {
             return ReviewIntervalStatResponse.builder()
                     .data(new ArrayList<>())
                     .medianInterval(0.0)
@@ -203,17 +222,16 @@ public class ProfileStatService {
                     .build();
         }
         
-        // Get all interval values and find max
-        List<Integer> intervalValues = new ArrayList<>();
-        for (ReviewScheduleEntity schedule : latestReviews) {
-            intervalValues.add(schedule.getIntervalDays());
-        }
+        List<Integer> intervalValues = reviewCards.stream()
+            .map(ReviewScheduleEntity::getIntervalDays)
+            .toList();
         
         // Calculate median
-        Collections.sort(intervalValues);
+        List<Integer> sortedIntervals = new ArrayList<>(intervalValues);
+        Collections.sort(sortedIntervals);
         double medianInterval = intervalValues.size() % 2 == 0
-                ? (intervalValues.get(intervalValues.size() / 2 - 1) + intervalValues.get(intervalValues.size() / 2)) / 2.0
-                : intervalValues.get(intervalValues.size() / 2);
+            ? (sortedIntervals.get(sortedIntervals.size() / 2 - 1) + sortedIntervals.get(sortedIntervals.size() / 2)) / 2.0
+            : sortedIntervals.get(sortedIntervals.size() / 2);
         
         // Find max interval
         int maxInterval = intervalValues.stream().mapToInt(Integer::intValue).max().orElse(0);
@@ -229,13 +247,13 @@ public class ProfileStatService {
         }
         
         // Build response with daily distribution
-        long total = latestReviews.size();
+        long total = reviewCards.size();
         List<ReviewIntervalItemDto> data = daysCounts.entrySet().stream()
                 .map(entry -> ReviewIntervalItemDto.builder()
                         .days(entry.getKey())
                         .count(entry.getValue())
                         .build())
-                .collect(Collectors.toList());
+            .toList();
         
         return ReviewIntervalStatResponse.builder()
                 .data(data)
@@ -280,7 +298,7 @@ public class ProfileStatService {
                         .count(entry.getValue())
                         .color(getEaseColor(entry.getKey()))
                         .build())
-                .collect(Collectors.toList());
+            .toList();
 
         return CardEaseStatResponse.builder()
                 .data(data)
@@ -309,10 +327,10 @@ public class ProfileStatService {
         }
     }
 
-    private AddStatResponse getAddStats(UserEntity user, String period, LocalDateTime periodStartDate) {
-        List<AddChartDataDto> data = generateAddChartData(period, user, periodStartDate);
+    private AddStatResponse getAddStats(UserEntity user, String period) {
+        List<AddChartDataDto> data = generateAddChartData(period, user);
         Long total = data.stream().mapToLong(AddChartDataDto::getAdded).sum();
-        Long average = data.size() > 0 ? Math.round((double) total / data.size()) : 0;
+        Long average = !data.isEmpty() ? Math.round((double) total / data.size()) : 0;
         
         AddChartStatsDto stats = AddChartStatsDto.builder()
                 .total(total)
@@ -327,79 +345,109 @@ public class ProfileStatService {
     }
 
     private List<ReviewsChartDataDto> generateReviewsChartData(String period, UserEntity user, LocalDateTime periodStartDate) {
-        List<ReviewsChartDataDto> data = new ArrayList<>();
         int daysCount = getDaysTotal(period);
-        LocalDateTime now = LocalDateTime.now();
-        
-        // Generate data for each day in the period
-        for (int i = -daysCount; i <= 0; i++) {
-            LocalDateTime dayStart = now.minusDays(-i).withHour(0).withMinute(0).withSecond(0);
-            LocalDateTime dayEnd = dayStart.withHour(23).withMinute(59).withSecond(59);
-            
-            // Query reviews for this specific day
-            List<ReviewScheduleEntity> dayReviews = reviewScheduleRepository.findReviewsByDateRange(
-                    user.getId(),
-                    dayStart,
-                    dayEnd
-            );
-            
-            // Count by state
-            long learning = dayReviews.stream().filter(r -> "learning".equalsIgnoreCase(r.getState())).count();
-            long relearning = dayReviews.stream().filter(r -> "relearning".equalsIgnoreCase(r.getState())).count();
-            long young = dayReviews.stream().filter(r -> "young".equalsIgnoreCase(r.getState())).count();
-            long mature = dayReviews.stream().filter(r -> "mature".equalsIgnoreCase(r.getState())).count();
-            long filtered = dayReviews.stream().filter(r -> "filtered".equalsIgnoreCase(r.getState())).count();
-            
+        LocalDateTime periodEndDate = LocalDateTime.now();
+        List<ReviewHistoryEntity> histories = reviewHistoryRepository.findByReviewSchedule_UserVocabulary_User_IdAndCreatedAtBetween(
+                user.getId(),
+                periodStartDate,
+                periodEndDate
+        );
+
+        Map<LocalDate, List<ReviewHistoryEntity>> historiesByDay = histories.stream()
+                .collect(Collectors.groupingBy(h -> h.getCreatedAt().toLocalDate()));
+
+        List<ReviewsChartDataDto> data = new ArrayList<>();
+        for (int offset = -daysCount + 1; offset <= 0; offset++) {
+            LocalDate day = periodEndDate.toLocalDate().plusDays(offset);
+            List<ReviewHistoryEntity> dayHistories = historiesByDay.getOrDefault(day, List.of());
+
+            long learning = dayHistories.stream().filter(h -> isLearningRating(h.getRating())).count();
+            long relearning = dayHistories.stream().filter(h -> isRelearningRating(h.getRating())).count();
+            long young = dayHistories.stream().filter(h -> isYoungRating(h.getRating())).count();
+            long mature = dayHistories.stream().filter(h -> isMatureRating(h.getRating())).count();
+
             data.add(ReviewsChartDataDto.builder()
-                    .day(String.valueOf(i))
+                    .day(String.valueOf(offset))
                     .learning(learning)
                     .relearning(relearning)
                     .young(young)
                     .mature(mature)
-                    .filtered(filtered)
+                    .filtered(0L)
                     .build());
         }
-        
+
         return data;
     }
 
     private List<TimeChartDataDto> generateTimeChartData(String period, UserEntity user, LocalDateTime periodStartDate) {
-        List<TimeChartDataDto> data = new ArrayList<>();
         int daysCount = getDaysTotal(period);
-        LocalDateTime now = LocalDateTime.now();
-        
-        // Generate data for each day in the period
-        for (int i = -daysCount; i <= 0; i++) {
-            LocalDateTime dayStart = now.minusDays(-i).withHour(0).withMinute(0).withSecond(0);
-            LocalDateTime dayEnd = dayStart.withHour(23).withMinute(59).withSecond(59);
-            
-            // Query quiz results for this specific day and group by card state
-            // We estimate time by assuming 2 minutes per review based on quiz results
-            List<ReviewScheduleEntity> dayReviews = reviewScheduleRepository.findReviewsByDateRange(
-                    user.getId(),
-                    dayStart,
-                    dayEnd
-            );
-            
-            // Count by state and estimate time (2 minutes per review as baseline)
-            long learning = dayReviews.stream().filter(r -> "learning".equalsIgnoreCase(r.getState())).count() * 2;
-            long relearning = dayReviews.stream().filter(r -> "relearning".equalsIgnoreCase(r.getState())).count() * 2;
-            long young = dayReviews.stream().filter(r -> "young".equalsIgnoreCase(r.getState())).count() * 2;
-            long mature = dayReviews.stream().filter(r -> "mature".equalsIgnoreCase(r.getState())).count() * 2;
-            
+        LocalDateTime periodEndDate = LocalDateTime.now();
+        List<ReviewHistoryEntity> histories = reviewHistoryRepository.findByReviewSchedule_UserVocabulary_User_IdAndCreatedAtBetween(
+                user.getId(),
+                periodStartDate,
+                periodEndDate
+        );
+
+        Map<LocalDate, List<ReviewHistoryEntity>> historiesByDay = histories.stream()
+                .collect(Collectors.groupingBy(h -> h.getCreatedAt().toLocalDate()));
+
+        List<TimeChartDataDto> data = new ArrayList<>();
+        for (int offset = -daysCount + 1; offset <= 0; offset++) {
+            LocalDate day = periodEndDate.toLocalDate().plusDays(offset);
+            List<ReviewHistoryEntity> dayHistories = historiesByDay.getOrDefault(day, List.of());
+
+            long learningMinutes = dayHistories.stream().filter(h -> isLearningRating(h.getRating()))
+                    .mapToLong(h -> secondsToMinutes(h.getDurationSeconds())).sum();
+            long relearningMinutes = dayHistories.stream().filter(h -> isRelearningRating(h.getRating()))
+                    .mapToLong(h -> secondsToMinutes(h.getDurationSeconds())).sum();
+            long youngMinutes = dayHistories.stream().filter(h -> isYoungRating(h.getRating()))
+                    .mapToLong(h -> secondsToMinutes(h.getDurationSeconds())).sum();
+            long matureMinutes = dayHistories.stream().filter(h -> isMatureRating(h.getRating()))
+                    .mapToLong(h -> secondsToMinutes(h.getDurationSeconds())).sum();
+
             data.add(TimeChartDataDto.builder()
-                    .day(String.valueOf(i))
-                    .learning(learning)
-                    .relearning(relearning)
-                    .young(young)
-                    .mature(mature)
+                    .day(String.valueOf(offset))
+                    .learning(learningMinutes)
+                    .relearning(relearningMinutes)
+                    .young(youngMinutes)
+                    .mature(matureMinutes)
                     .build());
         }
-        
+
         return data;
     }
 
-    private List<AddChartDataDto> generateAddChartData(String period, UserEntity user, LocalDateTime periodStartDate) {
+    private long secondsToMinutes(Integer durationSeconds) {
+        if (durationSeconds == null || durationSeconds <= 0) {
+            return 0L;
+        }
+        return Math.max(1L, Math.round(durationSeconds / 60.0));
+    }
+
+    private boolean isLearningRating(String rating) {
+        String normalized = normalizeRating(rating);
+        return "AGAIN".equals(normalized) || "FORGOT".equals(normalized);
+    }
+
+    private boolean isRelearningRating(String rating) {
+        String normalized = normalizeRating(rating);
+        return "HARD".equals(normalized) || "PARTIAL".equals(normalized);
+    }
+
+    private boolean isYoungRating(String rating) {
+        String normalized = normalizeRating(rating);
+        return "GOOD".equals(normalized) || "EFFORT".equals(normalized);
+    }
+
+    private boolean isMatureRating(String rating) {
+        return "EASY".equals(normalizeRating(rating));
+    }
+
+    private String normalizeRating(String rating) {
+        return rating == null ? "" : rating.trim().toUpperCase(Locale.ROOT);
+    }
+
+    private List<AddChartDataDto> generateAddChartData(String period, UserEntity user) {
         List<AddChartDataDto> data = new ArrayList<>();
         int daysCount = getDaysTotal(period);
         LocalDateTime now = LocalDateTime.now();

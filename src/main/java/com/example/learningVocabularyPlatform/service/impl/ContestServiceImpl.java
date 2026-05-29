@@ -37,6 +37,7 @@ public class ContestServiceImpl implements ContestService {
     private final ContestProblemRepository contestProblemRepository;
     private final ContestParticipantRepository contestParticipantRepository;
     private final ContestSubmissionRepository contestSubmissionRepository;
+    private final ServerLeaderboardRepository serverLeaderboardRepository;
     private final UserRepository userRepository;
     private final AuthenticatedUserService authenticatedUserService;
     private final FileStorageService fileStorageService;
@@ -256,6 +257,7 @@ public class ContestServiceImpl implements ContestService {
             contestSubmissionRepository.save(submission);
             results.add(toSubmissionResponse(submission));
         }
+        updateServerLeaderboard(user, contestId);
 
         return ApiResponse.builder()
                 .message("Nộp bài thành công")
@@ -304,6 +306,9 @@ public class ContestServiceImpl implements ContestService {
                 .submittedAt(now)
                 .build();
         contestSubmissionRepository.save(submission);
+        if (isContestCompleted(contestId, user.getId())) {
+            updateServerLeaderboard(user, contestId);
+        }
 
         int totalScore = sumScoreForUserInContest(contestId, user.getId());
 
@@ -402,6 +407,32 @@ public class ContestServiceImpl implements ContestService {
             return cap;
         }
         return 0;
+    }
+    
+    private boolean isContestCompleted(Long contestId, Long userId) {
+        long answered = contestSubmissionRepository.findByContest_IdAndUser_Id(contestId, userId).size();
+        long totalProblems = contestProblemRepository.findByContest_IdOrderByOrderIndexAsc(contestId).size();
+        return totalProblems > 0 && answered >= totalProblems;
+    }
+
+    private void updateServerLeaderboard(UserEntity user, Long contestId) {
+        int contestRating = sumScoreForUserInContest(contestId, user.getId());
+
+        ServerLeaderboardEntity leaderboard = serverLeaderboardRepository.findByUser_Id(user.getId())
+                .orElseGet(() -> ServerLeaderboardEntity.builder()
+                        .user(user)
+                        .rating(0)
+                        .maxRating(0)
+                        .contestCount(0)
+                        .build());
+
+        leaderboard.setUser(user);
+        int newRating = leaderboard.getRating() + contestRating;
+        leaderboard.setRating(newRating);
+        leaderboard.setContestCount(leaderboard.getContestCount() + 1);
+            int previousMaxRating = leaderboard.getMaxRating() != null ? leaderboard.getMaxRating() : 0;
+            leaderboard.setMaxRating(Math.max(previousMaxRating, newRating));
+        serverLeaderboardRepository.save(leaderboard);
     }
 
     @Override

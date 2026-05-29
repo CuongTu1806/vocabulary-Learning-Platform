@@ -19,6 +19,7 @@ public class ProfileStatResponse {
     private String currentRank;
     private Integer currentRankPoints;
     private Integer maxRankPoints;
+    private Integer maxRating;
     private String maxRank;
     private Integer contestsParticipated;
     
