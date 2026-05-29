@@ -19,5 +19,6 @@ public class LessonResponse {
     private String ownerUsername;
     private String visibility;
     private Integer downloadCount;
+    private Boolean currentUserCanQuiz;
     private LocalDateTime createdAt;
 }

@@ -87,7 +87,9 @@ public class LessonServiceImpl implements LessonService {
         if (!isOwner && !isPublic && !hasAccess) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Ban khong co quyen xem bai hoc nay");
         }
-        return lessonMapper.convertLessonToResponse(lesson);
+        LessonResponse response = lessonMapper.convertLessonToResponse(lesson);
+        response.setCurrentUserCanQuiz(isOwner || hasAccess);
+        return response;
     }
 
     @Override
