@@ -7,4 +7,8 @@ public interface ServerLeaderboardService {
     ApiResponse getGlobalLeaderboard();
 
     ApiResponse getUserRank(Long userId);
+
+    ApiResponse getContestRankings(String mode);
+
+    ApiResponse getLessonRankings(String range);
 }

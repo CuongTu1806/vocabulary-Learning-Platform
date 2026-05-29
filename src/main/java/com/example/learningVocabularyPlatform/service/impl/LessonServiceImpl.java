@@ -38,6 +38,7 @@ public class LessonServiceImpl implements LessonService {
     private final UserVocabularyRepository userVocabularyRepository;
     private final ReviewScheduleRepository reviewScheduleRepository;
     private final ReviewHistoryRepository reviewHistoryRepository;
+    private final LessonDownloadRepository lessonDownloadRepository;
 
     //Get all lesson belong to user
     @Override
@@ -101,16 +102,24 @@ public class LessonServiceImpl implements LessonService {
 
         UserEntity owner = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException(USER_NOT_FOUND));
-
-        // luưu để phục vụ thống kê lượt tải
-        if (!lessonAccessRepository.existsByUser_IdAndLesson_Id(userId, sourceLessonId)) {
-            lessonAccessRepository.save(LessonAccessEntity.builder()
-                    .user(owner)
-                    .lesson(sourceLesson)
-                    .build());
-            sourceLesson.setDownloadCount((sourceLesson.getDownloadCount() != null ? sourceLesson.getDownloadCount() : 0) + 1);
-            lessonRepository.save(sourceLesson);
+        // Nếu user đã có quyền truy cập (đã tải trước đó) thì chặn tải lại
+        if (lessonAccessRepository.existsByUser_IdAndLesson_Id(userId, sourceLessonId)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Bạn đã tải bài này rồi");
         }
+
+        // Ghi log mọi lượt tải để phục vụ leaderboard theo tuần/tháng/all-time
+        lessonDownloadRepository.save(LessonDownloadEntity.builder()
+            .user(owner)
+            .lesson(sourceLesson)
+            .build());
+        sourceLesson.setDownloadCount((sourceLesson.getDownloadCount() != null ? sourceLesson.getDownloadCount() : 0) + 1);
+        lessonRepository.save(sourceLesson);
+
+        // Cấp quyền truy cập lần đầu (đã đảm bảo chưa có trước đó)
+        lessonAccessRepository.save(LessonAccessEntity.builder()
+                .user(owner)
+                .lesson(sourceLesson)
+                .build());
 
         ensureReviewSchedulesForLesson(owner, sourceLesson);
 
@@ -194,17 +203,16 @@ public class LessonServiceImpl implements LessonService {
         }
 
         ReviewScheduleEntity reviewScheduleEntity = ReviewScheduleEntity.builder()
-                .user(user)
-                .userVocabulary(userVocabulary)
-                .repetationLevel(1)
-                .intervalDays(-1)
-                .nextReviewDate(LocalDateTime.now())
-                .lastReviewDate(null)
-                .easeFactor(1.5)
-                .delayFactor(0.05)
-                .learningStep(1)
-                .state("learning")
-                .build();
+            .user(user)
+            .userVocabulary(userVocabulary)
+            .intervalDays(-1)
+            .nextReviewDate(LocalDateTime.now())
+            .lastReviewDate(null)
+            .easeFactor(1.5)
+            .delayFactor(0.05)
+            .learningStep(1)
+            .state("learning")
+            .build();
         reviewScheduleRepository.save(reviewScheduleEntity);
     }
 

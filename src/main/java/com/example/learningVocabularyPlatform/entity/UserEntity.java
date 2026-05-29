@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Entity
@@ -82,5 +84,14 @@ public class UserEntity extends BaseEntity {
     // user 1 - 1 leaderboard
     @OneToOne(mappedBy = "user")
     private ServerLeaderboardEntity serverLeaderboard;
+
+    @Column(name = "login_streak")
+    private Integer loginStreak;
+
+    @Column(name = "last_streak_date")
+    private LocalDate lastStreakDate;
+
+    @Column(name = "last_login_at")
+    private LocalDateTime lastLoginAt;
 }
 

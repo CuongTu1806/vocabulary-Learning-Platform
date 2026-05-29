@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
 import java.util.List;
 
 public interface LessonRepository extends JpaRepository<LessonEntity, Long> {
@@ -23,4 +24,21 @@ public interface LessonRepository extends JpaRepository<LessonEntity, Long> {
                     ORDER BY COALESCE(l.downloadCount, 0) DESC, l.createdAt DESC
                     """)
     List<LessonEntity> searchPublicLessons(@Param("query") String query);
+
+                @Query("""
+                    SELECT DISTINCT l
+                    FROM LessonEntity l
+                    LEFT JOIN FETCH l.user u
+                    WHERE LOWER(COALESCE(l.visibility, 'PRIVATE')) = 'public'
+                    ORDER BY COALESCE(l.downloadCount, 0) DESC, l.createdAt DESC
+                    """)
+                List<LessonEntity> findAllPublicOrderByDownloadCountDesc();
+
+                @Query("""
+                    SELECT DISTINCT l
+                    FROM LessonEntity l
+                    LEFT JOIN FETCH l.user u
+                    WHERE l.id IN :ids
+                    """)
+                List<LessonEntity> findAllByIdInWithOwner(@Param("ids") Collection<Long> ids);
 }

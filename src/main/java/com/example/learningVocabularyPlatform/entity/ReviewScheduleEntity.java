@@ -23,8 +23,11 @@ import java.time.LocalDateTime;
 
 public class ReviewScheduleEntity extends BaseEntity {
 
-    @Column(name = "repetation_level")
-    private int repetationLevel;
+    @Column(name = "previous_interval_days")
+    private Integer previousIntervalDays;
+
+    @Column(name = "previous_ease_factor")
+    private Double previousEaseFactor;
 
     @Column(name = "state", length = 20)
     private String state;

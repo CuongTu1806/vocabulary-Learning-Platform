@@ -66,6 +66,16 @@ public class SpacedRepetitionController {
         return reviewScheduleService.getSettings(userId);
     }
 
+    @GetMapping("/stats")
+    public java.util.List<com.example.learningVocabularyPlatform.dto.response.ReviewStatsDayResponse> getReviewStats(Authentication authentication,
+                                                                                                                   @RequestParam(required = false) String start,
+                                                                                                                   @RequestParam(required = false) String end) {
+        Long userId = currentUserResolver.requireUserId(authentication);
+        java.time.LocalDate s = start == null ? java.time.LocalDate.now() : java.time.LocalDate.parse(start);
+        java.time.LocalDate e = end == null ? java.time.LocalDate.now() : java.time.LocalDate.parse(end);
+        return reviewScheduleService.getReviewStats(userId, s, e);
+    }
+
     @PutMapping("/settings")
     public ReviewSettingResponse updateSettings(Authentication authentication,
                                                 @RequestBody ReviewSettingRequest request) {

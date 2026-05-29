@@ -16,6 +16,14 @@ public interface ContestSubmissionRepository extends JpaRepository<ContestSubmis
     Optional<ContestSubmissionEntity> findByContest_IdAndProblem_IdAndUser_Id(
             Long contestId, Long problemId, Long userId);
 
+    @Query("""
+            SELECT s
+            FROM ContestSubmissionEntity s
+            JOIN FETCH s.user
+            JOIN FETCH s.contest
+            """)
+    List<ContestSubmissionEntity> findAllDetailed();
+
     /**
      * Nguồn sự thật cho leaderboard global: rating = SUM(score), contestCount = số contest khác nhau đã nộp bài.
      */
