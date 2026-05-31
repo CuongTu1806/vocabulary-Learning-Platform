@@ -109,6 +109,11 @@ public class AssignmentController {
         return ResponseEntity.ok(assignmentService.getSubmissions(id));
     }
 
+    @PostMapping("/{id}/regrade")
+    public ResponseEntity<ApiResponse> regradeAssignment(@PathVariable Long id) {
+        return ResponseEntity.ok(assignmentService.regradeAssignment(id));
+    }
+
     @PutMapping("/{assignmentId}/submissions/{submissionId}/grade")
     public ResponseEntity<ApiResponse> gradeAssignment(
             @PathVariable Long assignmentId,

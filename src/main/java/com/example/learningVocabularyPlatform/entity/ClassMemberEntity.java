@@ -21,6 +21,9 @@ public class ClassMemberEntity extends BaseEntity {
     @Column(name = "role")
     private String role;
 
+    @Column(name = "approved")
+    private Boolean approved;
+
     @CreatedDate
     @Column(name = "joined_at")
     private LocalDateTime joinedAt;

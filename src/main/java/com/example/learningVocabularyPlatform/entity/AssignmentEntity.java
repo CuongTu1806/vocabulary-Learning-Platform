@@ -42,4 +42,11 @@ public class AssignmentEntity extends BaseEntity {
 
     @OneToMany(mappedBy = "assignment", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<AssignmentAttachmentEntity> attachments;
+
+    @Column(name = "type")
+    private String type;
+
+    @Lob
+    @Column(name = "questions", columnDefinition = "TEXT")
+    private String questions; // JSON serialized questions for quiz/fill-in
 }

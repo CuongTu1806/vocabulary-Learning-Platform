@@ -26,6 +26,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -35,12 +37,15 @@ public class AssignmentServiceImpl implements AssignmentService {
     private final AssignmentRepository assignmentRepository;
     private final AssignmentSubmissionRepository assignmentSubmissionRepository;
     private final AssignmentAttachmentRepository assignmentAttachmentRepository;
+    private final AssignmentSubmissionDetailRepository assignmentSubmissionDetailRepository;
     private final SubmissionAttachmentRepository submissionAttachmentRepository;
     private final ClassroomRepository classroomRepository;
     private final ClassMemberRepository classMemberRepository;
     private final AuthenticatedUserService authenticatedUserService;
     private final FileStorageService fileStorageService;
     private final StorageProperties storageProperties;
+
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     private static boolean isClassOwner(ClassroomEntity classroom, UserEntity user) {
         return classroom.getOwner() != null && classroom.getOwner().getId().equals(user.getId());
@@ -78,13 +83,24 @@ public class AssignmentServiceImpl implements AssignmentService {
                     .build();
         }
 
-        AssignmentEntity assignmentEntity = AssignmentEntity.builder()
+        AssignmentEntity.AssignmentEntityBuilder builder = AssignmentEntity.builder()
                 .title(req.getTitle())
                 .description(req.getDescription())
                 .dueDate(req.getDueDate())
                 .classroom(classroom)
-                .userCreated(user)
-                .build();
+                .userCreated(user);
+        if (req.getType() != null) {
+            builder.type(req.getType());
+        }
+        AssignmentEntity assignmentEntity = builder.build();
+        if (req.getQuestions() != null) {
+            try {
+                String json = objectMapper.writeValueAsString(req.getQuestions());
+                assignmentEntity.setQuestions(json);
+            } catch (IOException e) {
+                // ignore serialization error
+            }
+        }
 
         assignmentRepository.save(assignmentEntity);
 
@@ -109,6 +125,17 @@ public class AssignmentServiceImpl implements AssignmentService {
         assignmentEntity.setTitle(req.getTitle());
         assignmentEntity.setDescription(req.getDescription());
         assignmentEntity.setDueDate(req.getDueDate());
+        if (req.getType() != null) {
+            assignmentEntity.setType(req.getType());
+        }
+        if (req.getQuestions() != null) {
+            try {
+                String json = objectMapper.writeValueAsString(req.getQuestions());
+                assignmentEntity.setQuestions(json);
+            } catch (IOException e) {
+                // ignore
+            }
+        }
         if (req.getClassId() != null) {
             ClassroomEntity classroomEntity = classroomRepository.findById(req.getClassId())
                     .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lớp học"));
@@ -202,10 +229,19 @@ public class AssignmentServiceImpl implements AssignmentService {
         dto.setCurrentUserCanGrade(manage);
         if (!manage && assignmentEntity.getClassroom() != null
                 && classMemberRepository.existsByClassroomIdAndUserId(assignmentEntity.getClassroom().getId(), current.getId())) {
-            dto.setCurrentUserHasSubmitted(
-                    assignmentSubmissionRepository
-                            .findByAssignment_IdAndUser_Id(assignmentEntity.getId(), current.getId())
-                            .isPresent());
+            var opt = assignmentSubmissionRepository.findByAssignment_IdAndUser_Id(assignmentEntity.getId(), current.getId());
+            dto.setCurrentUserHasSubmitted(opt.isPresent());
+            opt.ifPresent(s -> {
+                // only include details if teacher or submission released
+                if (canManageAssignment(assignmentEntity, current) || Boolean.TRUE.equals(s.getReleased()) || (s.getUser()!=null && s.getUser().getId().equals(current.getId()))) {
+                    dto.setCurrentUserSubmission(toAssignmentSubmissionResponse(s));
+                } else {
+                    // show submission without details
+                    var tmp = toAssignmentSubmissionResponse(s);
+                    tmp.setDetails(java.util.Collections.emptyList());
+                    dto.setCurrentUserSubmission(tmp);
+                }
+            });
         }
 
         return ApiResponse.builder()
@@ -217,13 +253,16 @@ public class AssignmentServiceImpl implements AssignmentService {
     @Override
     @Transactional
     public ApiResponse submitAssignment(Long assignmentId, AssignmentSubmissionRequest req) {
-        if (req.getContent() == null || req.getContent().isBlank()) {
-            return ApiResponse.builder()
-                    .message("Nhập nội dung bài làm")
-                    .build();
+        boolean hasQuestions = false;
+        if (req.getContent() == null && (req.getAnswers() == null || req.getAnswers().isEmpty())) {
+            return ApiResponse.builder().message("Nhập nội dung bài làm").build();
         }
         AssignmentEntity assignmentEntity = assignmentRepository.findByIdWithDetails(assignmentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy bài kiểm tra"));
+
+        if (assignmentEntity.getQuestions() != null && !assignmentEntity.getQuestions().isBlank()) {
+            hasQuestions = true;
+        }
 
         if (assignmentEntity.getDueDate() != null && LocalDateTime.now().isAfter(assignmentEntity.getDueDate())) {
             return ApiResponse.builder()
@@ -245,12 +284,145 @@ public class AssignmentServiceImpl implements AssignmentService {
         }
 
         AssignmentSubmissionEntity submissionEntity = AssignmentSubmissionEntity.builder()
-                .content(req.getContent().trim())
                 .score(0f)
                 .submittedAt(LocalDateTime.now())
                 .assignment(assignmentEntity)
                 .user(userEntity)
                 .build();
+
+        if (hasQuestions) {
+            // grade automatically
+            try {
+                java.util.List<com.example.learningVocabularyPlatform.dto.response.QuestionResponse> qs =
+                        objectMapper.readValue(assignmentEntity.getQuestions(), new TypeReference<java.util.List<com.example.learningVocabularyPlatform.dto.response.QuestionResponse>>(){});
+                int total = qs.size();
+                int correct = 0;
+                java.util.List<java.lang.Object> answers = req.getAnswers() != null ? req.getAnswers() : null;
+                // tolerate clients that sent answers as content JSON string (e.g. "[0,0]")
+                if ((answers == null || answers.isEmpty()) && req.getContent() != null) {
+                    String c = req.getContent().trim();
+                    if (c.startsWith("[") && c.endsWith("]")) {
+                        try {
+                            answers = objectMapper.readValue(c, new TypeReference<java.util.List<java.lang.Object>>(){});
+                        } catch (IOException ex) {
+                            answers = java.util.Collections.emptyList();
+                        }
+                    } else {
+                        answers = java.util.Collections.emptyList();
+                    }
+                }
+                if (answers == null) answers = java.util.Collections.emptyList();
+                for (int i = 0; i < total; i++) {
+                    com.example.learningVocabularyPlatform.dto.response.QuestionResponse q = qs.get(i);
+                    Object a = i < answers.size() ? answers.get(i) : null;
+                    String qType = q.getType();
+                    if (qType == null) {
+                        if (q.getChoices() != null && !q.getChoices().isEmpty()) {
+                            qType = "mcq";
+                        } else if (q.getAnswer() != null && !q.getAnswer().isBlank()) {
+                            qType = "fill";
+                        }
+                    }
+                    if (qType != null && qType.equalsIgnoreCase("mcq")) {
+                        // expect numeric index or text
+                        if (a instanceof Number) {
+                            int idx = ((Number) a).intValue();
+                            if (q.getChoices() != null && idx >= 0 && idx < q.getChoices().size()) {
+                                if (Boolean.TRUE.equals(q.getChoices().get(idx).getCorrect())) correct++;
+                            }
+                        } else if (a instanceof String) {
+                            String sa = ((String) a).trim();
+                            if (q.getChoices() != null) {
+                                for (com.example.learningVocabularyPlatform.dto.response.ChoiceResponse c : q.getChoices()) {
+                                    if (c.getText() != null && c.getText().equalsIgnoreCase(sa) && Boolean.TRUE.equals(c.getCorrect())) {
+                                        correct++;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    } else if (qType != null && qType.equalsIgnoreCase("fill")) {
+                        if (a instanceof String) {
+                            String sa = ((String) a).trim();
+                            if (q.getAnswer() != null && q.getAnswer().trim().equalsIgnoreCase(sa)) {
+                                correct++;
+                            }
+                        }
+                    }
+                }
+                float score = total == 0 ? 0f : (100f * (float) correct / (float) total);
+                submissionEntity.setScore(score);
+                // store answers as content JSON
+                try {
+                    submissionEntity.setContent(objectMapper.writeValueAsString(req.getAnswers()));
+                } catch (IOException e) {
+                    submissionEntity.setContent(req.getAnswers() == null ? null : req.getAnswers().toString());
+                }
+                // persist submission first to get id
+                assignmentSubmissionRepository.save(submissionEntity);
+                // save per-question details
+                java.util.List<com.example.learningVocabularyPlatform.entity.AssignmentSubmissionDetailEntity> detailsToSave = new java.util.ArrayList<>();
+                for (int i = 0; i < total; i++) {
+                    com.example.learningVocabularyPlatform.dto.response.QuestionResponse q = qs.get(i);
+                    Object a = i < answers.size() ? answers.get(i) : null;
+                    String studentAnswer = a == null ? null : a.toString();
+                    String expected = null;
+                    Boolean ok = null;
+                    String qType = q.getType();
+                    if (qType == null) {
+                        if (q.getChoices() != null && !q.getChoices().isEmpty()) qType = "mcq";
+                        else if (q.getAnswer() != null && !q.getAnswer().isBlank()) qType = "fill";
+                    }
+                    if (qType != null && qType.equalsIgnoreCase("mcq")) {
+                        if (a instanceof Number) {
+                            int idx = ((Number) a).intValue();
+                            if (q.getChoices() != null && idx >= 0 && idx < q.getChoices().size()) {
+                                expected = q.getChoices().get(idx).getText();
+                                ok = Boolean.TRUE.equals(q.getChoices().get(idx).getCorrect());
+                            }
+                        } else if (a instanceof String) {
+                            String sa = ((String) a).trim();
+                            if (q.getChoices() != null) {
+                                for (int ci = 0; ci < q.getChoices().size(); ci++) {
+                                    var cc = q.getChoices().get(ci);
+                                    if (cc.getText() != null && cc.getText().equalsIgnoreCase(sa)) {
+                                        expected = cc.getText();
+                                        ok = Boolean.TRUE.equals(cc.getCorrect());
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    } else if (qType != null && qType.equalsIgnoreCase("fill")) {
+                        expected = q.getAnswer();
+                        if (a instanceof String) {
+                            String sa = ((String) a).trim();
+                            ok = q.getAnswer() != null && q.getAnswer().trim().equalsIgnoreCase(sa);
+                        }
+                    }
+                    com.example.learningVocabularyPlatform.entity.AssignmentSubmissionDetailEntity det =
+                            com.example.learningVocabularyPlatform.entity.AssignmentSubmissionDetailEntity.builder()
+                                    .submission(submissionEntity)
+                                    .questionIndex(i)
+                                    .questionText(q.getText())
+                                    .studentAnswer(studentAnswer)
+                                    .expectedAnswer(expected)
+                                    .correct(ok)
+                                    .build();
+                    detailsToSave.add(det);
+                }
+                assignmentSubmissionDetailRepository.saveAll(detailsToSave);
+                // return early since submission already saved
+                return ApiResponse.builder()
+                        .message("Nộp bài thành công")
+                        .data(toAssignmentSubmissionResponse(assignmentSubmissionRepository.findByIdWithAttachments(submissionEntity.getId()).orElse(submissionEntity)))
+                        .build();
+            } catch (IOException e) {
+                submissionEntity.setContent(req.getAnswers() == null ? null : req.getAnswers().toString());
+            }
+        } else {
+            submissionEntity.setContent(req.getContent() == null ? null : req.getContent().trim());
+        }
         assignmentSubmissionRepository.save(submissionEntity);
 
         return ApiResponse.builder()
@@ -449,6 +621,8 @@ public class AssignmentServiceImpl implements AssignmentService {
         }
 
         submissionEntity.setScore(score);
+        // mark released so student can view details after teacher grades
+        submissionEntity.setReleased(true);
         assignmentSubmissionRepository.save(submissionEntity);
 
         AssignmentSubmissionEntity reloaded = assignmentSubmissionRepository.findByIdWithAttachments(submissionId)
@@ -458,6 +632,167 @@ public class AssignmentServiceImpl implements AssignmentService {
                 .message("Chấm điểm hoàn tất")
                 .data(toAssignmentSubmissionResponse(reloaded))
                 .build();
+    }
+
+    @Override
+    @Transactional
+    public ApiResponse regradeAssignment(Long assignmentId) {
+        UserEntity current = authenticatedUserService.requireCurrentUser();
+        AssignmentEntity assignment = assignmentRepository.findByIdWithDetails(assignmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy bài kiểm tra"));
+        if (!canManageAssignment(assignment, current)) {
+            return ApiResponse.builder().message("Bạn không có quyền thực hiện hành động này").build();
+        }
+
+        java.util.List<AssignmentSubmissionEntity> submissions = assignmentSubmissionRepository.findByAssignmentIdWithAttachments(assignmentId);
+        int updated = 0;
+        java.util.List<java.util.Map<String, Object>> results = new java.util.ArrayList<>();
+        for (AssignmentSubmissionEntity s : submissions) {
+            float newScore = s.getScore();
+            boolean recomputed = false;
+            if (assignment.getQuestions() != null && !assignment.getQuestions().isBlank()) {
+                try {
+                    java.util.List<com.example.learningVocabularyPlatform.dto.response.QuestionResponse> qs =
+                            objectMapper.readValue(assignment.getQuestions(), new TypeReference<java.util.List<com.example.learningVocabularyPlatform.dto.response.QuestionResponse>>(){});
+                    int total = qs.size();
+                    int correct = 0;
+                    java.util.List<java.lang.Object> answers = null;
+                    // try to read saved content as JSON array
+                    String c = s.getContent();
+                    if (c != null) {
+                        String t = c.trim();
+                        if (t.startsWith("[") && t.endsWith("]")) {
+                            try {
+                                answers = objectMapper.readValue(t, new TypeReference<java.util.List<java.lang.Object>>(){});
+                            } catch (IOException ex) {
+                                answers = java.util.Collections.emptyList();
+                            }
+                        }
+                    }
+                    if (answers == null) answers = java.util.Collections.emptyList();
+                    for (int i = 0; i < total; i++) {
+                        com.example.learningVocabularyPlatform.dto.response.QuestionResponse q = qs.get(i);
+                        Object a = i < answers.size() ? answers.get(i) : null;
+                        String qType = q.getType();
+                        if (qType == null) {
+                            if (q.getChoices() != null && !q.getChoices().isEmpty()) {
+                                qType = "mcq";
+                            } else if (q.getAnswer() != null && !q.getAnswer().isBlank()) {
+                                qType = "fill";
+                            }
+                        }
+                        if (qType != null && qType.equalsIgnoreCase("mcq")) {
+                            if (a instanceof Number) {
+                                int idx = ((Number) a).intValue();
+                                if (q.getChoices() != null && idx >= 0 && idx < q.getChoices().size()) {
+                                    if (Boolean.TRUE.equals(q.getChoices().get(idx).getCorrect())) correct++;
+                                }
+                            } else if (a instanceof String) {
+                                String sa = ((String) a).trim();
+                                if (q.getChoices() != null) {
+                                    for (com.example.learningVocabularyPlatform.dto.response.ChoiceResponse cc : q.getChoices()) {
+                                        if (cc.getText() != null && cc.getText().equalsIgnoreCase(sa) && Boolean.TRUE.equals(cc.getCorrect())) {
+                                            correct++;
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                        } else if (qType != null && qType.equalsIgnoreCase("fill")) {
+                            if (a instanceof String) {
+                                String sa = ((String) a).trim();
+                                if (q.getAnswer() != null && q.getAnswer().trim().equalsIgnoreCase(sa)) {
+                                    correct++;
+                                }
+                            }
+                        }
+                    }
+                    float score = total == 0 ? 0f : (100f * (float) correct / (float) total);
+                    newScore = score;
+                    s.setScore(newScore);
+                    // update details: remove old and save new per-question details
+                    java.util.List<com.example.learningVocabularyPlatform.entity.AssignmentSubmissionDetailEntity> old =
+                            assignmentSubmissionDetailRepository.findBySubmission_Id(s.getId());
+                    if (old != null && !old.isEmpty()) {
+                        assignmentSubmissionDetailRepository.deleteAll(old);
+                    }
+                    java.util.List<com.example.learningVocabularyPlatform.entity.AssignmentSubmissionDetailEntity> detailsToSave = new java.util.ArrayList<>();
+                    for (int i = 0; i < total; i++) {
+                        com.example.learningVocabularyPlatform.dto.response.QuestionResponse q = qs.get(i);
+                        Object a = i < answers.size() ? answers.get(i) : null;
+                        String studentAnswer = a == null ? null : a.toString();
+                        String expected = null;
+                        Boolean ok = null;
+                        String qType = q.getType();
+                        if (qType == null) {
+                            if (q.getChoices() != null && !q.getChoices().isEmpty()) qType = "mcq";
+                            else if (q.getAnswer() != null && !q.getAnswer().isBlank()) qType = "fill";
+                        }
+                        if (qType != null && qType.equalsIgnoreCase("mcq")) {
+                            if (a instanceof Number) {
+                                int idx = ((Number) a).intValue();
+                                if (q.getChoices() != null && idx >= 0 && idx < q.getChoices().size()) {
+                                    expected = q.getChoices().get(idx).getText();
+                                    ok = Boolean.TRUE.equals(q.getChoices().get(idx).getCorrect());
+                                }
+                            } else if (a instanceof String) {
+                                String sa = ((String) a).trim();
+                                if (q.getChoices() != null) {
+                                    for (int ci = 0; ci < q.getChoices().size(); ci++) {
+                                        var cc = q.getChoices().get(ci);
+                                        if (cc.getText() != null && cc.getText().equalsIgnoreCase(sa)) {
+                                            expected = cc.getText();
+                                            ok = Boolean.TRUE.equals(cc.getCorrect());
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                        } else if (qType != null && qType.equalsIgnoreCase("fill")) {
+                            expected = q.getAnswer();
+                            if (a instanceof String) {
+                                String sa = ((String) a).trim();
+                                ok = q.getAnswer() != null && q.getAnswer().trim().equalsIgnoreCase(sa);
+                            }
+                        }
+                        com.example.learningVocabularyPlatform.entity.AssignmentSubmissionDetailEntity det =
+                                com.example.learningVocabularyPlatform.entity.AssignmentSubmissionDetailEntity.builder()
+                                        .submission(s)
+                                        .questionIndex(i)
+                                        .questionText(q.getText())
+                                        .studentAnswer(studentAnswer)
+                                        .expectedAnswer(expected)
+                                        .correct(ok)
+                                        .build();
+                        detailsToSave.add(det);
+                    }
+                    assignmentSubmissionDetailRepository.saveAll(detailsToSave);
+                    assignmentSubmissionRepository.save(s);
+                    updated++;
+                    recomputed = true;
+                    java.util.Map<String, Object> r = new java.util.HashMap<>();
+                    r.put("submissionId", s.getId());
+                    r.put("score", newScore);
+                    r.put("recomputed", true);
+                    results.add(r);
+                } catch (IOException e) {
+                    // ignore parse error
+                }
+            }
+            if (!recomputed) {
+                java.util.Map<String, Object> r = new java.util.HashMap<>();
+                r.put("submissionId", s.getId());
+                r.put("score", s.getScore());
+                r.put("recomputed", false);
+                results.add(r);
+            }
+        }
+
+        java.util.Map<String, Object> resp = new java.util.HashMap<>();
+        resp.put("updatedCount", updated);
+        resp.put("results", results);
+
+        return ApiResponse.builder().message("Regrade hoàn tất").data(resp).build();
     }
 
     @Override
@@ -511,6 +846,18 @@ public class AssignmentServiceImpl implements AssignmentService {
                 .description(entity.getDescription())
                 .dueDate(entity.getDueDate())
                 .createdByUserId(entity.getUserCreated() != null ? entity.getUserCreated().getId() : null);
+        if (entity.getType() != null) {
+            b.type(entity.getType());
+        }
+        if (entity.getQuestions() != null && !entity.getQuestions().isBlank()) {
+            try {
+                java.util.List<com.example.learningVocabularyPlatform.dto.response.QuestionResponse> qs =
+                        objectMapper.readValue(entity.getQuestions(), new TypeReference<java.util.List<com.example.learningVocabularyPlatform.dto.response.QuestionResponse>>(){});
+                b.questions(qs);
+            } catch (IOException e) {
+                // ignore parse error
+            }
+        }
         if (attachments != null) {
             b.attachments(attachments.stream().map(this::toAssignmentAttachmentResponse).toList());
         }
@@ -540,6 +887,32 @@ public class AssignmentServiceImpl implements AssignmentService {
                         .build())
                 .toList();
 
+        // determine if current user can see details
+        java.util.List<com.example.learningVocabularyPlatform.dto.response.SubmissionDetailResponse> detailResponses = java.util.Collections.emptyList();
+        try {
+            com.example.learningVocabularyPlatform.entity.UserEntity current = authenticatedUserService.requireCurrentUser();
+            boolean canManage = canManageAssignment(entity.getAssignment(), current);
+            boolean isSubmitter = entity.getUser() != null && entity.getUser().getId().equals(current.getId());
+            if (canManage || (isSubmitter && Boolean.TRUE.equals(entity.getReleased()))) {
+                List<com.example.learningVocabularyPlatform.entity.AssignmentSubmissionDetailEntity> details = entity.getDetails();
+                if (details == null || details.isEmpty()) {
+                    details = assignmentSubmissionDetailRepository.findBySubmission_Id(entity.getId());
+                }
+                detailResponses = details.stream()
+                        .map(d -> com.example.learningVocabularyPlatform.dto.response.SubmissionDetailResponse.builder()
+                                .questionIndex(d.getQuestionIndex())
+                                .questionText(d.getQuestionText())
+                                .studentAnswer(d.getStudentAnswer())
+                                .expectedAnswer(d.getExpectedAnswer())
+                                .correct(d.getCorrect())
+                                .build())
+                        .toList();
+            }
+        } catch (Exception ignore) {
+            // if no authenticated user, do not include details
+            detailResponses = java.util.Collections.emptyList();
+        }
+
         return AssignmentSubmissionResponse.builder()
                 .id(entity.getId())
                 .assignmentId(entity.getAssignment().getId())
@@ -547,7 +920,8 @@ public class AssignmentServiceImpl implements AssignmentService {
                 .content(entity.getContent())
                 .score(entity.getScore())
                 .submittedAt(entity.getSubmittedAt())
-                .attachments(attResponses)
+            .attachments(attResponses)
+            .details(detailResponses)
                 .build();
     }
 }

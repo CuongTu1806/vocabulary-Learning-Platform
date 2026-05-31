@@ -4,10 +4,10 @@ import lombok.*;
 
 @Getter
 @Setter
-@Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class AssignmentSubmissionRequest {
-    private String content;
-    private java.util.List<java.lang.Object> answers;
+@Builder
+public class ChoiceRequest {
+    private String text;
+    private Boolean correct;
 }

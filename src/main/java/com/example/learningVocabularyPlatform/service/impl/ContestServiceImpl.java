@@ -57,6 +57,11 @@ public class ContestServiceImpl implements ContestService {
 
         UserEntity creator = authenticatedUserService.requireCurrentUser();
 
+        // Only teacher or admin can create contests
+        if (creator.getRole() == null || (!creator.getRole().equalsIgnoreCase("TEACHER") && !creator.getRole().equalsIgnoreCase("ADMIN"))) {
+            return ApiResponse.builder().message("Chỉ giáo viên hoặc quản trị viên mới được tạo cuộc thi").build();
+        }
+
         ContestEntity contest = ContestEntity.builder()
                 .title(req.getTitle())
                 .description(req.getDescription())
