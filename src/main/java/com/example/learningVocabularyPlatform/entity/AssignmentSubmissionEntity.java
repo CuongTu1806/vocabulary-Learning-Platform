@@ -23,6 +23,9 @@ public class AssignmentSubmissionEntity extends BaseEntity {
     @Column(name = "score")
     private float score;
 
+    @Column(name = "released")
+    private Boolean released;
+
     @Column(name = "submitted_at")
     private LocalDateTime submittedAt;
 
@@ -38,5 +41,8 @@ public class AssignmentSubmissionEntity extends BaseEntity {
 
     @OneToMany(mappedBy = "submission", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<SubmissionAttachmentEntity> attachments;
+
+    @OneToMany(mappedBy = "submission", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private List<com.example.learningVocabularyPlatform.entity.AssignmentSubmissionDetailEntity> details;
 
 }

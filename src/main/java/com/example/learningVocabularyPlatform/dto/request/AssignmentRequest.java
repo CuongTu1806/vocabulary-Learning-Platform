@@ -16,6 +16,10 @@ public class AssignmentRequest {
     private String title;
     private String description;
 
+    private String type; // "file" | "mcq" | "fill"
+
+    private java.util.List<com.example.learningVocabularyPlatform.dto.request.QuestionRequest> questions;
+
     @NotNull(message = "ngay khong duoc trong")
     @Future
     private LocalDateTime dueDate;

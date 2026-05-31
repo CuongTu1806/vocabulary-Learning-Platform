@@ -32,4 +32,6 @@ public interface AssignmentService {
     FileDownloadDto downloadAssignmentAttachment(Long attachmentId);
 
     FileDownloadDto downloadSubmissionAttachment(Long submissionId, Long attachmentId);
+
+    ApiResponse regradeAssignment(Long assignmentId);
 }

@@ -1,6 +1,8 @@
 package com.example.learningVocabularyPlatform.service;
 
 import com.example.learningVocabularyPlatform.dto.request.ClassMemberRequest;
+import com.example.learningVocabularyPlatform.dto.request.ClassBoardCommentRequest;
+import com.example.learningVocabularyPlatform.dto.request.ClassBoardPostRequest;
 import com.example.learningVocabularyPlatform.dto.request.ClassroomRequest;
 import com.example.learningVocabularyPlatform.dto.response.ApiResponse;
 
@@ -31,6 +33,22 @@ public interface ClassroomService {
 
     // Get class members
     ApiResponse getClassroomMembers(Long id);
+
+    // Get pending join requests for a class
+    ApiResponse getPendingJoinRequests(Long id);
+
+    // Approve a pending member (by userId)
+    ApiResponse approveMember(Long classId, Long userId);
+
+    // Reject a pending member (by userId)
+    ApiResponse rejectMember(Long classId, Long userId);
+
+    // Classroom board
+    ApiResponse getClassBoard(Long classId);
+
+    ApiResponse createClassBoardPost(Long classId, ClassBoardPostRequest request);
+
+    ApiResponse addClassBoardComment(Long classId, Long postId, ClassBoardCommentRequest request);
 
     /** Lớp do user làm chủ hoặc đang tham gia */
     ApiResponse getMyClassrooms();
