@@ -3,6 +3,7 @@ package com.example.learningVocabularyPlatform.dto.response;
 import lombok.*;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Getter
 @Setter
@@ -16,4 +17,6 @@ public class AssignmentSubmissionResponse {
     private String content;
     private float score;
     private LocalDateTime submittedAt;
+    private List<SubmissionAttachmentResponse> attachments;
+    private java.util.List<com.example.learningVocabularyPlatform.dto.response.SubmissionDetailResponse> details;
 }

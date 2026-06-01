@@ -5,6 +5,7 @@ import lombok.*;
 import lombok.experimental.SuperBuilder;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Entity
 @Table(name = "assignment_submission")
@@ -16,11 +17,14 @@ import java.time.LocalDateTime;
 
 public class AssignmentSubmissionEntity extends BaseEntity {
 
-    @Column(name = "content")
+    @Column(name = "content", columnDefinition = "TEXT")
     private String content;
 
     @Column(name = "score")
     private float score;
+
+    @Column(name = "released")
+    private Boolean released;
 
     @Column(name = "submitted_at")
     private LocalDateTime submittedAt;
@@ -34,5 +38,11 @@ public class AssignmentSubmissionEntity extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
     private UserEntity user;
+
+    @OneToMany(mappedBy = "submission", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private List<SubmissionAttachmentEntity> attachments;
+
+    @OneToMany(mappedBy = "submission", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private List<com.example.learningVocabularyPlatform.entity.AssignmentSubmissionDetailEntity> details;
 
 }

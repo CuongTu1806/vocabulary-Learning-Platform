@@ -10,6 +10,12 @@ import java.util.List;
 @Repository
 public interface ClassMemberRepository extends JpaRepository<ClassMemberEntity, Long> {
     List<ClassMemberEntity> findByClassroomId(Long classroomId);
+    List<ClassMemberEntity> findByClassroomIdAndApprovedTrue(Long classroomId);
+
+    List<ClassMemberEntity> findByClassroomIdAndApprovedFalse(Long classroomId);
+    List<ClassMemberEntity> findByUser_Id(Long userId);
+
+    List<ClassMemberEntity> findByUser_IdAndApprovedTrue(Long userId);
 
     @Transactional
     void deleteByClassroomIdAndUserId(Long classroomId, Long userId);
@@ -18,4 +24,6 @@ public interface ClassMemberRepository extends JpaRepository<ClassMemberEntity, 
     void deleteByClassroomId(Long classroomId);
 
     boolean existsByClassroomIdAndUserId(Long classroomId, Long userId);
+
+    boolean existsByClassroomIdAndUserIdAndApprovedTrue(Long classroomId, Long userId);
 }

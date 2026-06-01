@@ -9,9 +9,12 @@ import java.util.List;
 
 public interface LessonService {
     List<LessonResponse> getAll(Long userId);
+    List<LessonResponse> searchPublicLessons(String query);
+    LessonResponse getLesson(Long lessonId, Long userId);
+    LessonResponse importLesson(Long sourceLessonId, Long userId);
     LessonResponse createLesson(Long userId, LessonRequest lessonRequest);
     UserVocabularyResponse addVocab(Long lessonId, VocabularyAddRequest request, Long userId);
     LessonResponse updateLesson(Long userId, Long lessonId, LessonRequest request);
     void deleteLesson(Long userId, Long lessonId);
-    List<UserVocabularyResponse> getVocabInLesson(Long lessonId);
+    List<UserVocabularyResponse> getVocabInLesson(Long lessonId, Long userId);
 }

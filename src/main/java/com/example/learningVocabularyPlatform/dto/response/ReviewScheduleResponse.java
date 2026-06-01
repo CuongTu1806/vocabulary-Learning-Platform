@@ -16,7 +16,6 @@ public class ReviewScheduleResponse {
 	private String meaning;
 	private String state;
 	private int learningStep;
-	private int repetationLevel;
 	private int intervalDays;
 	private double easeFactor;
 	private double delayFactor;

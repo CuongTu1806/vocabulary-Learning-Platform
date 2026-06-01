@@ -6,12 +6,9 @@ import com.example.learningVocabularyPlatform.dto.response.ReviewScheduleRespons
 import com.example.learningVocabularyPlatform.dto.response.ReviewSettingResponse;
 import com.example.learningVocabularyPlatform.dto.response.SpacedRepetitionCalendarDayResponse;
 import com.example.learningVocabularyPlatform.dto.response.SpacedRepetitionDailySummaryResponse;
-import com.example.learningVocabularyPlatform.entity.ReviewHistoryEntity;
-import com.example.learningVocabularyPlatform.entity.ReviewScheduleEntity;
-import com.example.learningVocabularyPlatform.entity.ReviewSettingEntity;
-import com.example.learningVocabularyPlatform.entity.UserVocabularyEntity;
-import com.example.learningVocabularyPlatform.entity.UserEntity;
+import com.example.learningVocabularyPlatform.entity.*;
 import com.example.learningVocabularyPlatform.enums.RecallRating;
+import com.example.learningVocabularyPlatform.repository.LessonAccessRepository;
 import com.example.learningVocabularyPlatform.repository.ReviewHistoryRepository;
 import com.example.learningVocabularyPlatform.repository.ReviewScheduleRepository;
 import com.example.learningVocabularyPlatform.repository.ReviewSettingRepository;
@@ -31,7 +28,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -48,10 +44,12 @@ public class ReviewScheduleServiceImpl implements ReviewScheduleService {
 	private static final String STATE_LEARNING = "learning";
 	private static final String STATE_REVIEW = "review";
 	private static final String STATE_RELEARNING = "relearning";
+	private static final String USER_NOT_FOUND = "User not found";
 
 	private final ReviewScheduleRepository reviewScheduleRepository;
 	private final ReviewHistoryRepository reviewHistoryRepository;
 	private final UserVocabularyRepository userVocabularyRepository;
+	private final LessonAccessRepository lessonAccessRepository;
 	private final ReviewSettingRepository reviewSettingRepository;
 	private final UserRepository userRepository;
 
@@ -61,13 +59,29 @@ public class ReviewScheduleServiceImpl implements ReviewScheduleService {
 		ReviewSettingEntity setting = getOrCreateSetting(userId);
 		List<Integer> learningSteps = parseLearningSteps(setting.getLearningSteps());
 
+		// lấy ra userVocabulary theo id
 		UserVocabularyEntity userVocabulary = userVocabularyRepository
-				.findByIdAndUser_Id(userVocabularyId, userId)
+				.findById(userVocabularyId)
 				.orElseThrow(() -> new IllegalArgumentException("Vocabulary not found"));
+		if(userVocabulary.getVocabulary() != null) {
+			VocabularyEntity vocabulary = userVocabulary.getVocabulary();
+			userVocabulary.setPronunciation(vocabulary.getPronunciation());
+			userVocabulary.setPos(vocabulary.getPos());
+			userVocabulary.setExample(vocabulary.getExample());
+			userVocabulary.setImagePath(vocabulary.getImagePath());
+			userVocabulary.setExample(vocabulary.getExample());
+			userVocabulary.setMeaning(vocabulary.getMeaning());
+			userVocabulary.setAudioPath(vocabulary.getAudioPath());
+		}
+		assertUserCanAccessVocabulary(userId, userVocabulary);
 
 		ReviewScheduleEntity schedule = reviewScheduleRepository
-				.findTopByUserVocabulary_IdOrderByUpdatedAtDesc(userVocabularyId)
+				.findTopByUser_IdAndUserVocabulary_IdOrderByUpdatedAtDesc(userId, userVocabularyId)
 				.orElseGet(() -> createDefaultSchedule(userVocabulary));
+		if (schedule.getUser() == null || !schedule.getUser().getId().equals(userId)) {
+			schedule.setUser(userRepository.findById(userId)
+					.orElseThrow(() -> new IllegalArgumentException(USER_NOT_FOUND)));
+		}
 
 		if (STATE_NEW.equals(schedule.getState()) || schedule.getState() == null || schedule.getState().isBlank()) {
 			schedule.setState(STATE_LEARNING);
@@ -96,12 +110,17 @@ public class ReviewScheduleServiceImpl implements ReviewScheduleService {
 		}
 
 		UserVocabularyEntity userVocabulary = userVocabularyRepository
-				.findByIdAndUser_Id(request.getUserVocabularyId(), userId)
+				.findById(request.getUserVocabularyId())
 				.orElseThrow(() -> new IllegalArgumentException("Vocabulary not found"));
+		assertUserCanAccessVocabulary(userId, userVocabulary);
 
 		ReviewScheduleEntity schedule = reviewScheduleRepository
-				.findTopByUserVocabulary_IdOrderByUpdatedAtDesc(request.getUserVocabularyId())
+				.findTopByUser_IdAndUserVocabulary_IdOrderByUpdatedAtDesc(userId, request.getUserVocabularyId())
 				.orElseGet(() -> createDefaultSchedule(userVocabulary));
+		if (schedule.getUser() == null || !schedule.getUser().getId().equals(userId)) {
+			schedule.setUser(userRepository.findById(userId)
+					.orElseThrow(() -> new IllegalArgumentException(USER_NOT_FOUND)));
+		}
 
 		if (schedule.getState() == null || schedule.getState().isBlank()) {
 			schedule.setState(STATE_NEW);
@@ -110,6 +129,10 @@ public class ReviewScheduleServiceImpl implements ReviewScheduleService {
 		RecallRating rating = parseRating(request.getRating());
 		int oldInterval = schedule.getIntervalDays();
 		double oldEaseFactor = schedule.getEaseFactor() <= 0 ? DEFAULT_EASE_FACTOR : schedule.getEaseFactor();
+
+		// store previous schedule values on the schedule for auditing
+		schedule.setPreviousIntervalDays(oldInterval <= 0 ? null : oldInterval);
+		schedule.setPreviousEaseFactor(oldEaseFactor <= 0 ? null : oldEaseFactor);
 
 		if (STATE_NEW.equals(schedule.getState())) {
 			schedule.setState(STATE_LEARNING);
@@ -127,12 +150,8 @@ public class ReviewScheduleServiceImpl implements ReviewScheduleService {
 
 		ReviewHistoryEntity history = ReviewHistoryEntity.builder()
 				.rating(rating.name())
-				.oldEaseFactor(oldEaseFactor)
-				.newEaseFactor(saved.getEaseFactor())
-				.oldIntervalDays(oldInterval)
-				.newIntervalDays(saved.getIntervalDays())
-				.userVocabulary(userVocabulary)
 				.reviewSchedule(saved)
+				.durationSeconds(request.getDurationSeconds())
 				.build();
 		reviewHistoryRepository.save(history);
 
@@ -145,8 +164,11 @@ public class ReviewScheduleServiceImpl implements ReviewScheduleService {
 	@Override
 	public List<ReviewScheduleResponse> getDueCards(Long userId, int limit) {
 		int safeLimit = Math.max(1, limit);
+		LocalDate today = LocalDate.now();
+		LocalDateTime startOfDay = today.atStartOfDay();
+		LocalDateTime endOfDay = today.atTime(LocalTime.MAX);
 		List<ReviewScheduleEntity> dueSchedules = reviewScheduleRepository
-				.findByUserVocabulary_User_IdAndNextReviewDateLessThanEqualOrderByNextReviewDateAsc(userId, LocalDateTime.now());
+				.findByUserVocabulary_User_IdAndNextReviewDateBetweenOrderByNextReviewDateAsc(userId, startOfDay, endOfDay);
 
 		List<ReviewScheduleResponse> responses = new ArrayList<>();
 		for (ReviewScheduleEntity schedule : dueSchedules) {
@@ -160,23 +182,80 @@ public class ReviewScheduleServiceImpl implements ReviewScheduleService {
 
 	@Override
 	public SpacedRepetitionDailySummaryResponse getDailySummary(Long userId) {
-		LocalDateTime now = LocalDateTime.now();
-		long learningDue = reviewScheduleRepository.countByUserVocabulary_User_IdAndNextReviewDateLessThanEqualAndStateIn(
-				userId,
-				now,
-				List.of(STATE_LEARNING, STATE_RELEARNING)
-		);
-		long reviewDue = reviewScheduleRepository.countByUserVocabulary_User_IdAndNextReviewDateLessThanEqualAndStateIn(
-				userId,
-				now,
-				List.of(STATE_REVIEW)
-		);
+		LocalDate today = LocalDate.now();
+		LocalDateTime startOfDay = today.atStartOfDay();
+		LocalDateTime endOfDay = today.atTime(LocalTime.MAX);
+
+		List<ReviewScheduleEntity> schedules = reviewScheduleRepository
+				.findByUserVocabulary_User_IdAndNextReviewDateBetweenOrderByNextReviewDateAsc(userId, startOfDay, endOfDay);
+
+		long learningDue = 0;
+		long relearningDue = 0;
+		long reviewDue = 0;
+		for (ReviewScheduleEntity schedule : schedules) {
+			String state = schedule.getState() == null ? "" : schedule.getState().toLowerCase(Locale.ROOT);
+			if (STATE_LEARNING.equals(state)) {
+				learningDue++;
+			} else if (STATE_RELEARNING.equals(state)) {
+				relearningDue++;
+			} else if (STATE_REVIEW.equals(state)) {
+				reviewDue++;
+			}
+		}
 
 		return SpacedRepetitionDailySummaryResponse.builder()
 				.learningDue(learningDue)
+				.relearningDue(relearningDue)
 				.reviewDue(reviewDue)
-				.totalDue(learningDue + reviewDue)
+				.totalDue(learningDue + relearningDue + reviewDue)
 				.build();
+	}
+
+	@Override
+	public java.util.List<com.example.learningVocabularyPlatform.dto.response.ReviewStatsDayResponse> getReviewStats(Long userId, java.time.LocalDate startDate, java.time.LocalDate endDate) {
+		java.time.LocalDateTime start = startDate.atStartOfDay();
+		java.time.LocalDateTime end = endDate.atTime(java.time.LocalTime.MAX);
+		List<com.example.learningVocabularyPlatform.entity.ReviewHistoryEntity> histories = reviewHistoryRepository
+				.findByReviewSchedule_UserVocabulary_User_IdAndCreatedAtBetween(userId, start, end);
+
+		// aggregate by date
+		java.util.Map<java.time.LocalDate, java.util.List<com.example.learningVocabularyPlatform.entity.ReviewHistoryEntity>> byDay = new java.util.HashMap<>();
+		for (var h : histories) {
+			java.time.LocalDate d = h.getCreatedAt().toLocalDate();
+			byDay.computeIfAbsent(d, k -> new java.util.ArrayList<>()).add(h);
+		}
+
+		java.util.List<com.example.learningVocabularyPlatform.dto.response.ReviewStatsDayResponse> result = new java.util.ArrayList<>();
+		for (var entry : byDay.entrySet()) {
+			var day = entry.getKey();
+			var list = entry.getValue();
+			long total = list.size();
+			long totalDuration = list.stream().mapToLong(h -> h.getDurationSeconds() == null ? 0 : h.getDurationSeconds()).sum();
+			// breakdown by pos (via schedule -> userVocabulary)
+			java.util.Map<String, Long> posMap = new java.util.HashMap<>();
+			for (var h : list) {
+				String pos = "unknown";
+				if (h.getReviewSchedule() != null && h.getReviewSchedule().getUserVocabulary() != null) {
+					pos = h.getReviewSchedule().getUserVocabulary().getPos();
+					if (pos == null) pos = "unknown";
+				}
+				posMap.put(pos, posMap.getOrDefault(pos, 0L) + 1L);
+			}
+			java.util.List<com.example.learningVocabularyPlatform.dto.response.PosCount> posCounts = new java.util.ArrayList<>();
+			for (var e : posMap.entrySet()) {
+				posCounts.add(com.example.learningVocabularyPlatform.dto.response.PosCount.builder().pos(e.getKey()).count(e.getValue()).build());
+			}
+
+			result.add(com.example.learningVocabularyPlatform.dto.response.ReviewStatsDayResponse.builder()
+				.date(day.toString())
+				.totalReviews(total)
+				.totalDurationSeconds(totalDuration)
+				.posBreakdown(posCounts)
+				.build());
+		}
+
+		result.sort((a,b) -> a.getDate().compareTo(b.getDate()));
+		return result;
 	}
 
 	@Override
@@ -240,13 +319,28 @@ public class ReviewScheduleServiceImpl implements ReviewScheduleService {
 				.userVocabulary(userVocabulary)
 				.state(STATE_NEW)
 				.learningStep(0)
-				.repetationLevel(0)
 				.intervalDays(-1)
 				.easeFactor(DEFAULT_EASE_FACTOR)
 				.delayFactor(DEFAULT_DELAY_FACTOR)
 				.nextReviewDate(LocalDateTime.now())
 				.lastReviewDate(null)
 				.build();
+	}
+
+	private void assertUserCanAccessVocabulary(Long userId, UserVocabularyEntity userVocabulary) {
+		if (userVocabulary.getUser() != null && userId.equals(userVocabulary.getUser().getId())) {
+			return;
+		}
+		if (userVocabulary.getLesson() == null) {
+			throw new IllegalArgumentException("Vocabulary not accessible");
+		}
+		if ("PUBLIC".equalsIgnoreCase(userVocabulary.getLesson().getVisibility())) {
+			return;
+		}
+		if (lessonAccessRepository.existsByUser_IdAndLesson_Id(userId, userVocabulary.getLesson().getId())) {
+			return;
+		}
+		throw new IllegalArgumentException("Vocabulary not accessible");
 	}
 
 	private void applyLearningRule(ReviewScheduleEntity schedule, RecallRating rating, List<Integer> learningSteps) {
@@ -345,7 +439,6 @@ public class ReviewScheduleServiceImpl implements ReviewScheduleService {
 		schedule.setIntervalDays(newInterval);
 		schedule.setEaseFactor(newEF);
 		if (STATE_REVIEW.equals(schedule.getState())) {
-			schedule.setRepetationLevel(schedule.getRepetationLevel() + 1);
 			schedule.setNextReviewDate(LocalDateTime.now().plusDays(newInterval));
 		}
 	}
@@ -353,7 +446,7 @@ public class ReviewScheduleServiceImpl implements ReviewScheduleService {
 	private void graduateToReview(ReviewScheduleEntity schedule) {
 		schedule.setState(STATE_REVIEW);
 		schedule.setLearningStep(0);
-		schedule.setRepetationLevel(Math.max(1, schedule.getRepetationLevel() + 1));
+		// repetition level removed; no-op
 		schedule.setIntervalDays(DEFAULT_INTERVAL_DAYS);
 		schedule.setNextReviewDate(LocalDateTime.now().plusDays(schedule.getIntervalDays()));
 	}
@@ -361,7 +454,7 @@ public class ReviewScheduleServiceImpl implements ReviewScheduleService {
 	private ReviewSettingEntity getOrCreateSetting(Long userId) {
 		return reviewSettingRepository.findByUser_Id(userId).orElseGet(() -> {
 			UserEntity user = userRepository.findById(userId)
-					.orElseThrow(() -> new IllegalArgumentException("User not found"));
+					.orElseThrow(() -> new IllegalArgumentException(USER_NOT_FOUND));
 			ReviewSettingEntity created = ReviewSettingEntity.builder()
 					.user(user)
 					.learningSteps(DEFAULT_LEARNING_STEPS)
@@ -383,7 +476,7 @@ public class ReviewScheduleServiceImpl implements ReviewScheduleService {
 				.filter(s -> !s.isBlank())
 				.map(Integer::parseInt)
 				.filter(v -> v > 0)
-				.collect(Collectors.toList());
+				.toList();
 
 		if (steps.isEmpty()) {
 			throw new IllegalArgumentException("learningSteps is invalid");
@@ -430,11 +523,11 @@ public class ReviewScheduleServiceImpl implements ReviewScheduleService {
 		return ReviewScheduleResponse.builder()
 				.id(entity.getId())
 				.userVocabularyId(entity.getUserVocabulary() != null ? entity.getUserVocabulary().getId() : null)
-				.word(entity.getUserVocabulary() != null ? entity.getUserVocabulary().getWord() : null)
-				.meaning(entity.getUserVocabulary() != null ? entity.getUserVocabulary().getMeaning() : null)
+				.word(entity.getUserVocabulary().getVocabulary() != null ? entity.getUserVocabulary().getVocabulary().getWord() : entity.getUserVocabulary().getWord())
+				.meaning(entity.getUserVocabulary().getVocabulary() == null ? entity.getUserVocabulary().getMeaning() : entity.getUserVocabulary().getVocabulary().getMeaning())
 				.state(entity.getState())
 				.learningStep(entity.getLearningStep())
-				.repetationLevel(entity.getRepetationLevel())
+
 				.intervalDays(entity.getIntervalDays())
 				.easeFactor(entity.getEaseFactor())
 				.delayFactor(entity.getDelayFactor())

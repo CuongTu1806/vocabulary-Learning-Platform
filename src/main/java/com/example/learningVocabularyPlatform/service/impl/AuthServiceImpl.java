@@ -18,6 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Service
@@ -74,6 +75,8 @@ public class AuthServiceImpl implements AuthService {
 		}
 
 		revokeAllUserRefreshTokens(user);
+		// update login streak info
+		updateLoginStreak(user);
 		return buildAuthResponse(user);
 	}
 
@@ -181,6 +184,7 @@ public class AuthServiceImpl implements AuthService {
 				.token(accessToken)
 				.refreshToken(refreshToken)
 				.tokenType("Bearer")
+				.userId(user.getId())
 				.username(user.getUsername())
 				.email(user.getEmail())
 				.build();
@@ -190,6 +194,31 @@ public class AuthServiceImpl implements AuthService {
 		var activeTokens = refreshTokenRepository.findAllByUser_IdAndRevokedFalse(user.getId());
 		activeTokens.forEach(tokenEntity -> tokenEntity.setRevoked(true));
 		refreshTokenRepository.saveAll(activeTokens);
+	}
+
+	private void updateLoginStreak(UserEntity user) {
+		LocalDate today = LocalDate.now();
+		LocalDate last = user.getLastStreakDate();
+
+		if (last != null && last.isEqual(today)) {
+			// already counted today - still update lastLoginAt
+			user.setLastLoginAt(LocalDateTime.now());
+			userRepository.save(user);
+			return;
+		}
+
+		if (last != null && last.plusDays(1).isEqual(today)) {
+			// consecutive day
+			int prev = user.getLoginStreak() != null ? user.getLoginStreak() : 0;
+			user.setLoginStreak(prev + 1);
+		} else {
+			// reset streak
+			user.setLoginStreak(1);
+		}
+
+		user.setLastStreakDate(today);
+		user.setLastLoginAt(LocalDateTime.now());
+		userRepository.save(user);
 	}
 
 	@Override
@@ -219,6 +248,7 @@ public class AuthServiceImpl implements AuthService {
 				.orElseThrow(() -> new IllegalArgumentException("User not found"));
 
 		return AuthResponse.builder()
+				.userId(user.getId())
 				.username(user.getUsername())
 				.email(user.getEmail())
 				.tokenType("Bearer")

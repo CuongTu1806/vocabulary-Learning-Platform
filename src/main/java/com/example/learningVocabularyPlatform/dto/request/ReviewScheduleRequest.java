@@ -10,4 +10,5 @@ import lombok.*;
 public class ReviewScheduleRequest {
 	private Long userVocabularyId;
 	private String rating;
+	private Integer durationSeconds;
 }

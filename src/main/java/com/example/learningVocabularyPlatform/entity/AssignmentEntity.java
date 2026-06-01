@@ -39,4 +39,14 @@ public class AssignmentEntity extends BaseEntity {
     // Assignment 1 - N assignment_submission
     @OneToMany(mappedBy = "assignment", fetch = FetchType.LAZY)
     private List<AssignmentSubmissionEntity> assignmentSubmissions;
+
+    @OneToMany(mappedBy = "assignment", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private List<AssignmentAttachmentEntity> attachments;
+
+    @Column(name = "type")
+    private String type;
+
+    @Lob
+    @Column(name = "questions", columnDefinition = "TEXT")
+    private String questions; // JSON serialized questions for quiz/fill-in
 }

@@ -9,4 +9,5 @@ import lombok.*;
 @AllArgsConstructor
 public class AssignmentSubmissionRequest {
     private String content;
+    private java.util.List<java.lang.Object> answers;
 }
