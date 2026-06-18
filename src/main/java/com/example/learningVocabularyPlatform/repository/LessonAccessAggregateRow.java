@@ -1,6 +1,6 @@
 package com.example.learningVocabularyPlatform.repository;
 
-public interface LessonDownloadAggregateRow {
+public interface LessonAccessAggregateRow {
 
     Long getLessonId();
 

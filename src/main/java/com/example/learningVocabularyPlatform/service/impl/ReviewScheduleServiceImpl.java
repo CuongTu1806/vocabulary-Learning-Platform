@@ -165,10 +165,9 @@ public class ReviewScheduleServiceImpl implements ReviewScheduleService {
 	public List<ReviewScheduleResponse> getDueCards(Long userId, int limit) {
 		int safeLimit = Math.max(1, limit);
 		LocalDate today = LocalDate.now();
-		LocalDateTime startOfDay = today.atStartOfDay();
 		LocalDateTime endOfDay = today.atTime(LocalTime.MAX);
 		List<ReviewScheduleEntity> dueSchedules = reviewScheduleRepository
-				.findByUserVocabulary_User_IdAndNextReviewDateBetweenOrderByNextReviewDateAsc(userId, startOfDay, endOfDay);
+				.findByUserVocabulary_User_IdAndNextReviewDateLessThanEqualOrderByNextReviewDateAsc(userId, endOfDay);
 
 		List<ReviewScheduleResponse> responses = new ArrayList<>();
 		for (ReviewScheduleEntity schedule : dueSchedules) {
@@ -183,11 +182,10 @@ public class ReviewScheduleServiceImpl implements ReviewScheduleService {
 	@Override
 	public SpacedRepetitionDailySummaryResponse getDailySummary(Long userId) {
 		LocalDate today = LocalDate.now();
-		LocalDateTime startOfDay = today.atStartOfDay();
 		LocalDateTime endOfDay = today.atTime(LocalTime.MAX);
 
 		List<ReviewScheduleEntity> schedules = reviewScheduleRepository
-				.findByUserVocabulary_User_IdAndNextReviewDateBetweenOrderByNextReviewDateAsc(userId, startOfDay, endOfDay);
+				.findByUserVocabulary_User_IdAndNextReviewDateLessThanEqualOrderByNextReviewDateAsc(userId, endOfDay);
 
 		long learningDue = 0;
 		long relearningDue = 0;
@@ -261,16 +259,19 @@ public class ReviewScheduleServiceImpl implements ReviewScheduleService {
 	@Override
 	public List<SpacedRepetitionCalendarDayResponse> getMonthlyCalendar(Long userId, int year, int month) {
 		YearMonth yearMonth = YearMonth.of(year, month);
-		LocalDateTime start = LocalDateTime.of(yearMonth.atDay(1), LocalTime.MIN);
 		LocalDateTime end = LocalDateTime.of(yearMonth.atEndOfMonth(), LocalTime.MAX);
 
 		List<ReviewScheduleEntity> schedules = reviewScheduleRepository
-				.findByUserVocabulary_User_IdAndNextReviewDateBetweenOrderByNextReviewDateAsc(userId, start, end);
+				.findByUserVocabulary_User_IdAndNextReviewDateLessThanEqualOrderByNextReviewDateAsc(userId, end);
 
+		LocalDate today = LocalDate.now();
 		Map<LocalDate, Long> dayCounts = new HashMap<>();
 		for (ReviewScheduleEntity schedule : schedules) {
-			LocalDate day = schedule.getNextReviewDate().toLocalDate();
-			dayCounts.put(day, dayCounts.getOrDefault(day, 0L) + 1);
+			LocalDate rawDay = schedule.getNextReviewDate().toLocalDate();
+			LocalDate effectiveDay = rawDay.isBefore(today) ? today : rawDay;
+			if (effectiveDay.getYear() == year && effectiveDay.getMonthValue() == month) {
+				dayCounts.put(effectiveDay, dayCounts.getOrDefault(effectiveDay, 0L) + 1);
+			}
 		}
 
 		List<SpacedRepetitionCalendarDayResponse> result = new ArrayList<>();

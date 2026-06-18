@@ -38,7 +38,7 @@ public class SpacedRepetitionController {
 
     @GetMapping("/due")
     public List<ReviewScheduleResponse> getDueCards(Authentication authentication,
-                                                    @RequestParam(defaultValue = "20") int limit) {
+                                                    @RequestParam(defaultValue = "1000") int limit) {
         Long userId = currentUserResolver.requireUserId(authentication);
         return reviewScheduleService.getDueCards(userId, limit);
     }

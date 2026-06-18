@@ -38,7 +38,6 @@ public class LessonServiceImpl implements LessonService {
     private final UserVocabularyRepository userVocabularyRepository;
     private final ReviewScheduleRepository reviewScheduleRepository;
     private final ReviewHistoryRepository reviewHistoryRepository;
-    private final LessonDownloadRepository lessonDownloadRepository;
 
     //Get all lesson belong to user
     @Override
@@ -109,11 +108,7 @@ public class LessonServiceImpl implements LessonService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Bạn đã tải bài này rồi");
         }
 
-        // Ghi log mọi lượt tải để phục vụ leaderboard theo tuần/tháng/all-time
-        lessonDownloadRepository.save(LessonDownloadEntity.builder()
-            .user(owner)
-            .lesson(sourceLesson)
-            .build());
+        // Ghi lượt tải bằng lesson_access.created_at (sử dụng lesson_access làm nguồn truth cho lượt tải gần đây)
         sourceLesson.setDownloadCount((sourceLesson.getDownloadCount() != null ? sourceLesson.getDownloadCount() : 0) + 1);
         lessonRepository.save(sourceLesson);
 
