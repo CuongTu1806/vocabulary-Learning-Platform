@@ -7,8 +7,8 @@ import com.example.learningVocabularyPlatform.entity.ContestSubmissionEntity;
 import com.example.learningVocabularyPlatform.entity.LessonEntity;
 import com.example.learningVocabularyPlatform.entity.UserEntity;
 import com.example.learningVocabularyPlatform.repository.ContestSubmissionRepository;
-import com.example.learningVocabularyPlatform.repository.LessonDownloadAggregateRow;
-import com.example.learningVocabularyPlatform.repository.LessonDownloadRepository;
+import com.example.learningVocabularyPlatform.repository.LessonAccessAggregateRow;
+import com.example.learningVocabularyPlatform.repository.LessonAccessRepository;
 import com.example.learningVocabularyPlatform.repository.LessonRepository;
 import com.example.learningVocabularyPlatform.repository.UserRepository;
 import com.example.learningVocabularyPlatform.service.ServerLeaderboardService;
@@ -44,7 +44,7 @@ public class ServerLeaderboardServiceImpl implements ServerLeaderboardService {
     private static final String RANGE_MONTH = "month";
 
     private final ContestSubmissionRepository contestSubmissionRepository;
-    private final LessonDownloadRepository lessonDownloadRepository;
+    private final LessonAccessRepository lessonAccessRepository;
     private final LessonRepository lessonRepository;
     private final UserRepository userRepository;
 
@@ -200,7 +200,7 @@ public class ServerLeaderboardServiceImpl implements ServerLeaderboardService {
             start = LocalDate.now().minusDays(29).atStartOfDay(); // 30-day window including today
         }
 
-        List<LessonDownloadAggregateRow> aggregates = lessonDownloadRepository.aggregateDownloadsBetween(start, end);
+        List<LessonAccessAggregateRow> aggregates = lessonAccessRepository.aggregateAccessBetween(start, end);
         if (aggregates.isEmpty()) {
             // No recent download logs found — fall back to all-time download counts so UI shows useful data
             List<LessonEntity> lessons = lessonRepository.findAllPublicOrderByDownloadCountDesc();
@@ -225,7 +225,7 @@ public class ServerLeaderboardServiceImpl implements ServerLeaderboardService {
         }
 
         Map<Long, Long> countsByLessonId = aggregates.stream()
-                .collect(Collectors.toMap(LessonDownloadAggregateRow::getLessonId, LessonDownloadAggregateRow::getDownloadCount));
+            .collect(Collectors.toMap(LessonAccessAggregateRow::getLessonId, LessonAccessAggregateRow::getDownloadCount));
 
         Map<Long, LessonEntity> lessonsById = lessonRepository.findAllByIdInWithOwner(countsByLessonId.keySet()).stream()
                 .collect(Collectors.toMap(LessonEntity::getId, lesson -> lesson));
