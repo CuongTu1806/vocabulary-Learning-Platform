@@ -8,6 +8,8 @@ import com.example.learningVocabularyPlatform.exception.ResourceNotFoundExceptio
 import com.example.learningVocabularyPlatform.entity.VocabularyEntity;
 import com.example.learningVocabularyPlatform.mapper.VocabularyMapper;
 import com.example.learningVocabularyPlatform.repository.LessonRepository;
+import com.example.learningVocabularyPlatform.repository.ReviewHistoryRepository;
+import com.example.learningVocabularyPlatform.repository.ReviewScheduleRepository;
 import com.example.learningVocabularyPlatform.repository.UserVocabularyRepository;
 import com.example.learningVocabularyPlatform.repository.VocabularyRepository;
 import com.example.learningVocabularyPlatform.service.UserVocabularyService;
@@ -34,6 +36,8 @@ public class UserVocabularyServiceImpl implements UserVocabularyService {
     private final UserVocabularyRepository userVocabularyRepository;
     private final VocabularyMapper vocabularyMapper;
     private final VocabularyRepository vocabularyRepository;
+    private final ReviewHistoryRepository reviewHistoryRepository;
+    private final ReviewScheduleRepository reviewScheduleRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -81,6 +85,7 @@ public class UserVocabularyServiceImpl implements UserVocabularyService {
     }
 
     @Override
+    @Transactional
     public void deleteVocabInLesson(Long lessonId, Long vocabId, Long userId) {
         LessonEntity lesson = lessonRepository.findById(lessonId)
                 .orElseThrow(() -> new ResourceNotFoundException(LESSON_NOT_FOUND));
@@ -89,6 +94,11 @@ public class UserVocabularyServiceImpl implements UserVocabularyService {
         }
         UserVocabularyEntity uvc = userVocabularyRepository.findByIdAndLesson_Id(vocabId, lessonId)
                 .orElseThrow(() -> new ResourceNotFoundException(USER_VOCAB_NOT_FOUND));
+
+        // Delete child records first to avoid foreign key constraint violations
+        reviewHistoryRepository.deleteByReviewSchedule_UserVocabulary_Id(uvc.getId());
+        reviewScheduleRepository.deleteByUserVocabulary_Id(uvc.getId());
+
         userVocabularyRepository.delete(uvc);
     }
 }

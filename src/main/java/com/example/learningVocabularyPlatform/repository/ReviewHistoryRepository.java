@@ -11,4 +11,6 @@ public interface ReviewHistoryRepository extends JpaRepository<ReviewHistoryEnti
     List<ReviewHistoryEntity> findByReviewSchedule_UserVocabulary_User_IdAndCreatedAtBetween(Long userId, java.time.LocalDateTime start, java.time.LocalDateTime end);
 
     void deleteByReviewSchedule_UserVocabulary_Lesson_Id(Long lessonId);
+
+    void deleteByReviewSchedule_UserVocabulary_Id(Long userVocabularyId);
 }
