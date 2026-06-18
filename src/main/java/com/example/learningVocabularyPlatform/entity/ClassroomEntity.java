@@ -31,10 +31,6 @@ public class ClassroomEntity extends BaseEntity {
     @OneToMany(mappedBy = "classroom", fetch = FetchType.LAZY)
     private List<ClassMemberEntity> classMembers;
 
-    // Classroom 1 - N Class Lesson
-    @OneToMany(mappedBy = "classroom", fetch = FetchType.LAZY)
-    private List<ClassLessonEntity> classLessons;
-
     // Classroom 1 - N Assignment
     @OneToMany(mappedBy ="classroom", fetch = FetchType.LAZY)
     private List<AssignmentEntity> assignments;

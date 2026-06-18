@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 public interface LessonAccessRepository extends JpaRepository<LessonAccessEntity, Long> {
@@ -22,4 +23,16 @@ public interface LessonAccessRepository extends JpaRepository<LessonAccessEntity
             ORDER BY l.createdAt DESC
             """)
     List<LessonEntity> findAccessibleLessonsByUserId(@Param("userId") Long userId);
+
+        @Query("""
+            SELECT la.lesson.id AS lessonId, COUNT(la) AS downloadCount
+            FROM LessonAccessEntity la
+            WHERE la.createdAt BETWEEN :start AND :end
+              AND LOWER(COALESCE(la.lesson.visibility, '')) = 'public'
+            GROUP BY la.lesson.id
+            """)
+        List<LessonAccessAggregateRow> aggregateAccessBetween(
+            @Param("start") LocalDateTime start,
+            @Param("end") LocalDateTime end
+        );
 }

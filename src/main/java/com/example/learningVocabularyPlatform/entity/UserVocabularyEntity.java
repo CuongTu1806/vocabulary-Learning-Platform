@@ -62,7 +62,4 @@ public class UserVocabularyEntity extends BaseEntity {
     @OneToMany(mappedBy = "userVocabulary", fetch = FetchType.LAZY)
     private List<ReviewScheduleEntity> reviewSchedules;
 
-    // user_vocabulary 1 - N Vocabulary_stat
-    @OneToMany(mappedBy = "userVocabulary", fetch = FetchType.LAZY)
-    private List<VocabularyStatEntity> vocabularyStats;
 }
