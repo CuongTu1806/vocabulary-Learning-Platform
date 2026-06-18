@@ -16,6 +16,8 @@ public interface ReviewScheduleRepository extends JpaRepository<ReviewScheduleEn
 
         void deleteByUserVocabulary_Lesson_Id(Long lessonId);
 
+        void deleteByUserVocabulary_Id(Long userVocabularyId);
+
                 @Query("""
                                                 SELECT rs
                                                 FROM ReviewScheduleEntity rs
